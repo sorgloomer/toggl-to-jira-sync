@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block page_content %}
+        <h1>Logs of last 7 days</h1>
+
+        <div>
+        {% for day in days %}
+            <h3>{{ day.key }}</h3>
+            {% for entry in day["values"] %}
+            <div class="row">
+                <div class="col-6">
+                    <strong class="d-block">{{ entry.description }}</strong>
+                    <small>{{ project_by_id[entry.pid].name }}</small>
+                    <small>$: {{ entry.billable }}</small>
+                </div>
+                <div class="col">{{ entry.start | from_isoformat | local | time }} - {{ entry.stop | from_isoformat | local | time }}</div>
+                <div class="col">messages</div>
+            </div>
+            {% endfor %}
+        {% endfor %}
+        </div>
+{% endblock %}
+
+{% block page_body %}
+    {{ super() }}
+    <pre><code>{{ days | repr }}</code></pre>
+{% endblock %}

@@ -1,0 +1,29 @@
+<html>
+<head>
+    {% block page_head %}
+    <meta charset="UTF-8">
+    <title>Toggl to JIRA worklog sync</title>
+
+    <link
+        rel="stylesheet"
+        href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+        crossorigin="anonymous"
+    >
+    <style>
+        .page-content {
+            padding: 1rem;
+        }
+    </style>
+    {% endblock %}
+</head>
+<body>
+
+    {% block page_body %}
+    <div class="page-content">
+        {% block page_content %}
+        {% endblock %}
+    </div>
+    {% endblock %}
+</body>
+</html>
