@@ -6,66 +6,66 @@
     .pairing-row:not(:first-child) {
         border-top: 1px solid black;
     }
+    .code {
+        font-family: monospace;
+    }
 </style>
 {% endblock %}
 
 {% block page_content %}
-        <h1>Logs of last 7 days</h1>
-
-        <div>
-        {% for day_key, day_values in days %}
-            <h3>{{ day_key }}</h3>
-            {% for entry in day_values %}
-            <div class="row">
-                <div class="col-6">
-                    <strong class="d-block">{{ entry.comment }}</strong>
-                    {#
-                    #}
-                    <small>{{ entry.tag.project or "--no project--"}}</small>
-                    <small>$: {{ entry.tag.billable }}</small>
-                </div>
-                <div class="col">{{ entry.start | local | time }} - {{ entry.stop | local | time }}</div>
-                <div class="col">messages</div>
-            </div>
-            {% endfor %}
-        {% endfor %}
+        <div class="mb-3">
+            <h1>Logs of 7 days</h1>
+            <a href="{{ modify_query(delta=delta-7) }}" class="btn btn-secondary">Previous week</a>
+            <a href="{{ modify_query(delta=None) }}" class="btn btn-secondary">Jump to now</a>
         </div>
-
-        <div class="card">
+        {% for day, rows in days %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3>{{ day | format_datetime("%A, %Y-%m-%d") }}</h3>
+            </div>
             <div class="card-body">
-            {% for toggl, jira, dist in pairing %}
-                <div class="row pairing-row">
-                    {% if toggl != None %}
-                    <div class="col-4">
-                        <strong class="d-block">{{ toggl.comment }}</strong>
-                        <small>{{ toggl.tag.project or "--no project--"}}</small>
-                        <small>$: {{ toggl.tag.billable }}</small>
-                        <small>id: {{ toggl.tag.id }}</small>
-                    </div>
-                    <div class="col-1">{{ toggl.start | local | time }} - {{ toggl.stop | local | time }}</div>
-                    {% else %}
-                    <div class="col-5"></div>
-                    {% endif %}
-                    {% if jira != None %}
-                    <div class="col-4">
-                        <strong class="d-block">{{ jira.comment }}</strong>
-                        <small>id: {{ jira.tag.id }}</small>
-                    </div>
-                    <div class="col-1">{{ jira.start | local | time }} - {{ jira.stop | local | time }}</div>
-                    {% else %}
-                    <div class="col-5"></div>
-                    {% endif %}
-                    <div class="col-2">
-                        <div>messages</div>
-                        <div><small>dist: {{ dist }}</small></div>
+            {% for log_comparison in rows %}
+                {% set toggl = log_comparison.toggl %}
+                {% set jira = log_comparison.jira %}
+                <div class="pairing-row">
+                    <div class="row">
+                        <div class="col-4">
+                            {% if toggl != None %}
+                            <div><strong class="d-block">{{ toggl.comment }}</strong></div>
+                            <div><small>time: {{ toggl.start | local | time }} - {{ toggl.stop | local | time }}</small></div>
+                            <div><small>id: {{ toggl.tag.id }}</small></div>
+                            <div><small>issue: {{ toggl.issue }}</small></div>
+                            <div><small>project: {{ toggl.tag.project or "\u2013no project\u2013"}}</small></div>
+                            <div><small>billable: {{ toggl.tag.billable }}</small></div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-4">
+                            {% if jira != None %}
+                            <div><strong class="d-block">{{ jira.comment }}</strong></div>
+                            <div><small>time: {{ jira.start | local | time }} - {{ jira.stop | local | time }}</small></div>
+                            <div><small>id: {{ jira.tag.id }}</small></div>
+                            <div><small>issue: {{ jira.issue }}</small></div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-4">
+                            {% for message in log_comparison.messages %}
+                            <div class="text-{{ message.level }}">
+                                <small>{{ message.level }}: {{ message.message }}</small>
+                            </div>
+                            {% endfor %}
+                            <div><small>dist: {{ log_comparison.dist }}</small></div>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
+        {% endfor %}
 {% endblock %}
 
 {% block page_body %}
     {{ super() }}
-    <pre><code>{{ days | pformat }}</code></pre>
+    <div class="m-3 code">{{ model | pformat | pre }}</div>
 {% endblock %}

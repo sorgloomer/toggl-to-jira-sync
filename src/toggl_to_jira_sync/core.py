@@ -13,9 +13,19 @@ WorklogEntry = namedtuple("WorklogEntry", [
 
 
 def calculate_pairing(toggl_logs, jira_logs):
+    pairings = _calculate_pairing(toggl_logs, jira_logs, _worklog_entry_distance, 5)
     return sorted(
-        _calculate_pairing(toggl_logs, jira_logs, _worklog_entry_distance, 5),
-        key=_pairing_order
+        [
+            {
+                "toggl": pairing[0],
+                "jira": pairing[1],
+                "dist": pairing[2],
+                "start": _pairing_start(pairing),
+            }
+            for pairing in pairings
+        ],
+        key=lambda pairing: pairing["start"],
+        reverse=True,
     )
 
 
@@ -38,7 +48,7 @@ def _calculate_pairing(xs, ys, distfn, threshold):
         yield (None, y, None)
 
 
-def _pairing_order(pairing):
+def _pairing_start(pairing):
     toggl_entry, jira_entry, dist = pairing
     if toggl_entry is not None:
         return toggl_entry.start
