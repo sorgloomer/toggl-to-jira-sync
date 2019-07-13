@@ -1,27 +1,71 @@
 {% extends "layout.html" %}
 
+{% block page_head %}
+{{ super() }}
+<style>
+    .pairing-row:not(:first-child) {
+        border-top: 1px solid black;
+    }
+</style>
+{% endblock %}
+
 {% block page_content %}
         <h1>Logs of last 7 days</h1>
 
         <div>
-        {% for day in days %}
-            <h3>{{ day.key }}</h3>
-            {% for entry in day["values"] %}
+        {% for day_key, day_values in days %}
+            <h3>{{ day_key }}</h3>
+            {% for entry in day_values %}
             <div class="row">
                 <div class="col-6">
-                    <strong class="d-block">{{ entry.description }}</strong>
-                    <small>{{ project_by_id[entry.pid].name }}</small>
-                    <small>$: {{ entry.billable }}</small>
+                    <strong class="d-block">{{ entry.comment }}</strong>
+                    {#
+                    #}
+                    <small>{{ entry.tag.project or "--no project--"}}</small>
+                    <small>$: {{ entry.tag.billable }}</small>
                 </div>
-                <div class="col">{{ entry.start | from_isoformat | local | time }} - {{ entry.stop | from_isoformat | local | time }}</div>
+                <div class="col">{{ entry.start | local | time }} - {{ entry.stop | local | time }}</div>
                 <div class="col">messages</div>
             </div>
             {% endfor %}
         {% endfor %}
         </div>
+
+        <div class="card">
+            <div class="card-body">
+            {% for toggl, jira, dist in pairing %}
+                <div class="row pairing-row">
+                    {% if toggl != None %}
+                    <div class="col-4">
+                        <strong class="d-block">{{ toggl.comment }}</strong>
+                        <small>{{ toggl.tag.project or "--no project--"}}</small>
+                        <small>$: {{ toggl.tag.billable }}</small>
+                        <small>id: {{ toggl.tag.id }}</small>
+                    </div>
+                    <div class="col-1">{{ toggl.start | local | time }} - {{ toggl.stop | local | time }}</div>
+                    {% else %}
+                    <div class="col-5"></div>
+                    {% endif %}
+                    {% if jira != None %}
+                    <div class="col-4">
+                        <strong class="d-block">{{ jira.comment }}</strong>
+                        <small>id: {{ jira.tag.id }}</small>
+                    </div>
+                    <div class="col-1">{{ jira.start | local | time }} - {{ jira.stop | local | time }}</div>
+                    {% else %}
+                    <div class="col-5"></div>
+                    {% endif %}
+                    <div class="col-2">
+                        <div>messages</div>
+                        <div><small>dist: {{ dist }}</small></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
 {% endblock %}
 
 {% block page_body %}
     {{ super() }}
-    <pre><code>{{ days | repr }}</code></pre>
+    <pre><code>{{ days | pformat }}</code></pre>
 {% endblock %}
