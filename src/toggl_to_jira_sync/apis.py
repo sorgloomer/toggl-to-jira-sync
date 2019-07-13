@@ -44,18 +44,24 @@ class TogglApi(object):
             params["end_date"] = datetime_toggl_format.to_str(end_datetime)
         return self._get("v8/time_entries", params=params)
 
-    @utils.transform_result(list)
     def get_worklog(self, workspace_name, min_datetime=None, max_datetime=None):
         workspaces = self.get_workspaces()
         workspace = dicts.find_first(workspaces, name=workspace_name)
         projects = self.get_projects(workspace["id"])
         project_by_id = utils.index_by_id(projects)
         entries = self.get_entries(start_datetime=min_datetime, end_datetime=max_datetime)
+        # TODO: check if this can return worklogs of other people, consider filtering for uid
         assert len(set(e["uid"] for e in entries)) <= 1
-        pprint.pprint(entries)
-        for entry in entries:
-            project = project_by_id.get(entry.get("pid"))
-            yield self._extract_entry(entry, project)
+        worklog = [
+            self._extract_entry(entry, project_by_id.get(entry.get("pid")))
+            for entry in entries
+        ]
+        return {
+            "workspace": workspace,
+            "projects": projects,
+            "entries": entries,
+            "worklog": worklog,
+        }
 
     @classmethod
     def _extract_entry(cls, entry, project):
@@ -89,8 +95,14 @@ class JiraApi(object):
     def get_worklog(self, author=None, min_datetime=None, max_datetime=None):
         worklog_filter = JiraWorklogFilter(author=author, min_date=min_datetime, max_date=max_datetime)
         jql = self._assemble_jql(worklog_filter, date_error_margin=datetime.timedelta(days=1))
-        resp = self.execute_jql(jql)
-        return self._get_filtered_worklogs(resp, worklog_filter)
+        worklog_resp = self.execute_jql(jql)
+        worklog = self._get_filtered_worklogs(worklog_resp, worklog_filter)
+        return {
+            "jql": jql,
+            "worklog_filter": worklog_filter,
+            "worklog_resp": worklog_resp,
+            "worklog": worklog,
+        }
 
     def execute_jql(self, jql):
         return self._get("rest/api/2/search", params={"jql": jql})

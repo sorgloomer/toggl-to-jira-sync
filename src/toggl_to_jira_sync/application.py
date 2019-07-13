@@ -125,14 +125,14 @@ def index():
         min_datetime=min_datetime,
         max_datetime=max_datetime,
     )
-    pairings = calculate_pairing(toggl_worklog, jira_worklog)
+    pairings = calculate_pairing(toggl_worklog["worklog"], jira_worklog["worklog"])
     rows = [
         {
             "toggl": pairing["toggl"],
             "jira": pairing["jira"],
             "dist": pairing["dist"],
             "start": pairing["start"],
-            "messages": list(actions.gather_diff(pairing)),
+            "actions": list(actions.gather_diff(pairing)),
         }
         for pairing in pairings
     ]
@@ -141,6 +141,8 @@ def index():
     model = dict(
         days=days,
         delta=delta,
+        projects=toggl_worklog["projects"],
+        entries=toggl_worklog["entries"],
     )
     return flask.render_template("index.html", model=model, **model)
 

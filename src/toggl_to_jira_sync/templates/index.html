@@ -50,9 +50,10 @@
                         </div>
 
                         <div class="col-4">
-                            {% for message in log_comparison.messages %}
-                            <div class="text-{{ message.level }}">
-                                <small>{{ message.level }}: {{ message.message }}</small>
+                            {% for action in log_comparison.actions %}
+                            <div class="text-{{ action.level }}">
+                                <div><small>{{ action.level }}: {{ action.message }}</small></div>
+                                <div><small>{{ action.action }}: {{ action.params }}</small></div>
                             </div>
                             {% endfor %}
                             <div><small>dist: {{ log_comparison.dist }}</small></div>

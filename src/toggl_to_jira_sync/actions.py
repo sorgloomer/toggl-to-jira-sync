@@ -1,10 +1,13 @@
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 
 class NotificationLevel:
     info = "info"
     warning = "warning"
     danger = "danger"
+
+
+Action = namedtuple("Action", ["message", "level", "action", "params"])
 
 
 def gather_diff(pairing):
@@ -14,9 +17,14 @@ def gather_diff(pairing):
 
 
 def _extract_context(pairing):
+    toggl = pairing["toggl"]
+    jira = pairing["jira"]
     return _merge(
-        _map_sys("toggl__", pairing["toggl"]),
-        _map_sys("jira__", pairing["jira"]),
+        _map_sys("toggl__", toggl),
+        _map_sys("jira__", jira),
+        {
+            "toggl__id": toggl.tag.id if toggl is not None else None
+        }
     )
 
 
@@ -40,10 +48,12 @@ def _merge(*dicts):
 def validators():
     return [
         SyncValidator(
+            action="toggl_align_start",
+            action_params={"id": "toggl__id"},
             message="Align toggl log start to whole minute {expected_value}.",
+            level=NotificationLevel.info,
             field_name="toggl__start",
             expected_value=_whole_minute_of("toggl__start"),
-            level=NotificationLevel.info,
             predicate=_value_of("toggl__present"),
         ),
 
@@ -54,49 +64,62 @@ def validators():
         #     level=NotificationLevel.info,
         #     predicate=_value_of("toggl__present"),
         # ),
-        PredicateValidator(
-            message="Create jira worklog for {toggl__issue} {toggl__start} {toggl__stop}",
-            level=NotificationLevel.danger,
-            predicate=_value_of("jira__present"),
-        ),
-        SyncValidator(
-            message="Jira log start {jira__start} does not match Toggl log start {toggl__start}",
-            field_name="jira__start",
-            expected_value=_value_of("toggl__start"),
-            level=NotificationLevel.danger,
-            predicate=_both_present,
-        ),
-        SyncValidator(
-            message="Jira log stop {jira__stop} does not match Toggl log stop {toggl__stop}",
-            field_name="jira__stop",
-            expected_value=_value_of("toggl__stop"),
-            level=NotificationLevel.danger,
-            predicate=_both_present,
-        ),
+        # PredicateValidator(
+        #     message="Create jira worklog for {toggl__issue} {toggl__start} {toggl__stop}",
+        #     level=NotificationLevel.danger,
+        #     predicate=_value_of("jira__present"),
+        # ),
+        # SyncValidator(
+        #     message="Jira log start {jira__start} does not match Toggl log start {toggl__start}",
+        #     field_name="jira__start",
+        #     expected_value=_value_of("toggl__start"),
+        #     level=NotificationLevel.danger,
+        #     predicate=_both_present,
+        # ),
+        # SyncValidator(
+        #     message="Jira log stop {jira__stop} does not match Toggl log stop {toggl__stop}",
+        #     field_name="jira__stop",
+        #     expected_value=_value_of("toggl__stop"),
+        #     level=NotificationLevel.danger,
+        #     predicate=_both_present,
+        # ),
     ]
 
 
 class BaseValidator(object):
-    def __init__(self, message, level):
+    def __init__(self, message, level, action, action_params):
         self.message = message
         self.level = level
-
-    def make_message(self, context, expected_value=None):
-        message = self.message.format(expected_value=expected_value, **context)
-        return {
-            "level": self.level,
-            "message": message,
-        }
+        self.action = action
+        self.action_params = action_params
 
     def check_and_list_messages(self, context):
         raise NotImplemented
 
+    def make_action(self, context, expected_value=None):
+        temp_context = dict()
+        temp_context.update(context)
+        temp_context["expected_value"] = expected_value
+        message = self.message.format(**temp_context)
+        action_params = None
+        if self.action_params:
+            action_params = {
+                k: temp_context[v]
+                for k, v in self.action_params.items()
+            }
+        return Action(
+            action=self.action,
+            params=action_params,
+            message=message,
+            level=self.level,
+        )
+
 
 class SyncValidator(BaseValidator):
-    def __init__(self, message, level, field_name=None, expected_value=None, predicate=None):
+    def __init__(self, message, level, action, action_params, field_name=None, expected_value=None, predicate=None):
         if predicate is None:
             predicate = _always
-        super().__init__(message=message, level=level)
+        super().__init__(message=message, level=level, action=action, action_params=action_params)
         self.field_name = field_name
         self.expected_value = expected_value
         self.predicate = predicate
@@ -108,19 +131,19 @@ class SyncValidator(BaseValidator):
         expected_value = self.expected_value(context)
         if original_value == expected_value:
             return
-        yield self.make_message(context, expected_value)
+        yield self.make_action(context, expected_value)
         context[self.field_name] = expected_value
 
 
 class PredicateValidator(BaseValidator):
-    def __init__(self, message, level, predicate):
-        super().__init__(message=message, level=level)
+    def __init__(self, message, level, action, action_params, predicate):
+        super().__init__(message=message, level=level, action=action, action_params=action_params)
         self.predicate = predicate
 
     def check_and_list_messages(self, context):
         if self.predicate(context):
             return
-        yield self.make_message(context)
+        yield self.make_action(context)
 
 
 def _always(context):

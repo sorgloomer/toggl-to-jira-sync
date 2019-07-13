@@ -44,37 +44,6 @@ def index_by(items, key):
     return result
 
 
-def transform_result(transform_fn):
-    @decorator
-    def _transform_result(target):
-        return transform_fn(target())
-    return _transform_result
-
-
-def decorator(decorator_func):
-    @functools.wraps(decorator_func)
-    def _decorator(func):
-        @functools.wraps(func)
-        def _decorator_wrapper(*args, **kwargs):
-            return decorator_func(InvocationTarget(func, args, kwargs))
-        return _decorator_wrapper
-    return _decorator
-
-
-class InvocationTarget:
-    def __init__(self, func, args, kwargs):
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-
-    def forward(self):
-        print(self.func, self.args, self.kwargs)
-        return self.func(*self.args, **self.kwargs)
-
-    def __call__(self):
-        return self.forward()
-
-
 def strip_after_any(haystack, needles):
     for needle in needles:
         haystack = haystack.split(needle, 1)[0]
