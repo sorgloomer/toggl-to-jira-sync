@@ -1,7 +1,6 @@
 import datetime
 import json
 import pprint
-from collections import namedtuple
 
 import flask
 from jinja2 import Undefined
@@ -127,8 +126,9 @@ def index():
         max_datetime=max_datetime,
     )
     pairings = calculate_pairing(toggl_worklog["worklog"], jira_worklog["worklog"])
+    diff_gatherer = actions.DiffGather(secrets=secrets, projects=toggl_worklog["projects"])
     rows = [
-        determine_actions_and_map(pairing)
+        determine_actions_and_map(pairing, diff_gatherer)
         for pairing in pairings
     ]
     days = utils.into_bins(rows, lambda e: day_bin.date_of(e["start"]), sorting='desc')
@@ -184,8 +184,8 @@ def aggregate_actions(day):
     }
 
 
-def determine_actions_and_map(pairing):
-    diff = actions.gather_diff(pairing)
+def determine_actions_and_map(pairing, diff_gatherer):
+    diff = diff_gatherer.gather_diff(pairing)
     return {
         "toggl": pairing["toggl"],
         "jira": pairing["jira"],

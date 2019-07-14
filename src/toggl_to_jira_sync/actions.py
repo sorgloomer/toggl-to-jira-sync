@@ -1,5 +1,6 @@
 from collections import OrderedDict, namedtuple
 
+from toggl_to_jira_sync import utils
 from toggl_to_jira_sync.formats import datetime_toggl_format
 
 
@@ -101,7 +102,39 @@ class ActionRecorder(object):
         return result
 
 
-def _gather_diff(recorder, toggl, jira):
+class DiffGather(object):
+    def __init__(self, secrets, projects):
+        projects_by_name = utils.index_by(projects, "name")
+        self.projects_by_key = {
+            k: projects_by_name[v]
+            for k, v in secrets.toggl_projects.items()
+        }
+        print(self.projects_by_key)
+
+    def gather_diff(self, pairing):
+        toggl = pairing["toggl"]
+        jira = pairing["jira"]
+
+        recorder = ActionRecorder(
+            issue=toggl.issue if toggl is not None else jira.issue,
+            toggl_id=toggl.tag.id if toggl is not None else None,
+            jira_id=jira.tag.id if jira is not None else None,
+        )
+
+        _gather_diff(
+            recorder=recorder,
+            toggl=toggl,
+            jira=jira,
+            diff_params=self,
+        )
+
+        return {
+            "actions": recorder.serialize(),
+            "messages": recorder.messages,
+        }
+
+
+def _gather_diff(recorder, toggl, jira, diff_params):
     if toggl is None:
         if jira is not None:
             recorder.message("Remove jira entry", MessageLevel.danger)
@@ -112,8 +145,8 @@ def _gather_diff(recorder, toggl, jira):
         recorder.message("Update toggl to billable", MessageLevel.info)
         recorder.toggl_update("billable", True)
 
-    expected_pid = _get_expected_project_pid(toggl)
-    if toggl.tag.project_pid != expected_pid:
+    expected_pid = _get_expected_project_pid(toggl, diff_params)
+    if expected_pid is not None and toggl.tag.project_pid != expected_pid:
         recorder.message("Update toggl project", MessageLevel.warning)
         recorder.toggl_update("pid", expected_pid)
 
@@ -155,30 +188,9 @@ def _gather_diff(recorder, toggl, jira):
         recorder.jira_update("comment", toggl_comment)
 
 
-def gather_diff(pairing):
-    toggl = pairing["toggl"]
-    jira = pairing["jira"]
-
-    recorder = ActionRecorder(
-        issue=toggl.issue if toggl is not None else jira.issue,
-        toggl_id=toggl.tag.id if toggl is not None else None,
-        jira_id=jira.tag.id if jira is not None else None,
-    )
-
-    _gather_diff(
-        recorder=recorder,
-        toggl=toggl,
-        jira=jira,
-    )
-
-    return {
-        "actions": recorder.serialize(),
-        "messages": recorder.messages,
-    }
-
-
-def _get_expected_project_pid(toggl):
-    return None
+def _get_expected_project_pid(toggl, diff_params):
+    project = diff_params.projects_by_key.get(toggl.tag.jira_project.lower())
+    return project["id"] if project is not None else None
 
 
 def _floor_minue(dt):

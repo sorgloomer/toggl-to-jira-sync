@@ -48,6 +48,7 @@
                                 <div><small>time: {{ toggl.start | local | time }} - {{ toggl.stop | local | time }}</small></div>
                                 <div><small>id: {{ toggl.tag.id }}</small></div>
                                 <div><small>issue: {{ toggl.issue }}</small></div>
+                                <div><small>jira project: {{ toggl.tag.jira_project }}</small></div>
                                 <div><small>project: {{ toggl.tag.project_name or "\u2013no project\u2013"}} ({{ toggl.tag.project_pid }})</small></div>
                                 <div><small>billable: {{ toggl.tag.billable }}</small></div>
                                 {% endif %}

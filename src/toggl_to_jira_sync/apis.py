@@ -11,7 +11,7 @@ from toggl_to_jira_sync.core import WorklogEntry
 from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_date_format, datetime_jira_format
 
 JiraTag = namedtuple("JiraTag", ["id"])
-TogglTag = namedtuple("TogglTag", ["id", "project_name", "project_pid", "billable"])
+TogglTag = namedtuple("TogglTag", ["id", "project_name", "project_pid", "billable", "jira_project"])
 
 
 class TogglApi(object):
@@ -66,8 +66,10 @@ class TogglApi(object):
     @classmethod
     def _extract_entry(cls, entry, project, project_pid):
         description = entry["description"]
+        issue = cls._extract_issue(description)
+        jira_project = _extract_jira_project_from_issue(issue)
         return WorklogEntry(
-            issue=cls._extract_issue(description),
+            issue=issue,
             start=datetime_toggl_format.from_str(entry["start"]),
             stop=datetime_toggl_format.from_str(entry["stop"]),
             comment=description,
@@ -76,6 +78,7 @@ class TogglApi(object):
                 project_name=project["name"] if project is not None else None,
                 project_pid=project_pid,
                 billable=entry["billable"],
+                jira_project=jira_project,
             ),
         )
 
@@ -85,6 +88,10 @@ class TogglApi(object):
 
 
 JiraWorklogFilter = namedtuple("JiraWorklogFilter", ["author", "min_date", "max_date"])
+
+
+def _extract_jira_project_from_issue(issue):
+    return utils.strip_after_any(issue, ["-"])
 
 
 class JiraApi(object):
