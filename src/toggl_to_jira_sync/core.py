@@ -59,7 +59,7 @@ def _pairing_start(pairing):
 
 def _worklog_entry_distance(a, b):
     return (
-        + 4 * _worklog_str_dist(a.issue, b.issue)
+        + 100 * _worklog_str_dist(a.issue, b.issue)
         + 1 * _worklog_str_dist(a.comment, b.comment)
         + 2 * _worklog_datetime_dist(a.start, b.start)
         + 1 * _worklog_datetime_dist(a.stop, b.stop)

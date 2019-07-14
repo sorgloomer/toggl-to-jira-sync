@@ -11,7 +11,7 @@ from toggl_to_jira_sync.core import WorklogEntry
 from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_date_format, datetime_jira_format
 
 JiraTag = namedtuple("JiraTag", ["id"])
-TogglTag = namedtuple("TogglTag", ["id", "project", "billable"])
+TogglTag = namedtuple("TogglTag", ["id", "project_name", "project_pid", "billable"])
 
 
 class TogglApi(object):
@@ -53,7 +53,7 @@ class TogglApi(object):
         # TODO: check if this can return worklogs of other people, consider filtering for uid
         assert len(set(e["uid"] for e in entries)) <= 1
         worklog = [
-            self._extract_entry(entry, project_by_id.get(entry.get("pid")))
+            self._extract_entry(entry, project_by_id.get(entry.get("pid")), entry.get("pid"))
             for entry in entries
         ]
         return {
@@ -64,7 +64,7 @@ class TogglApi(object):
         }
 
     @classmethod
-    def _extract_entry(cls, entry, project):
+    def _extract_entry(cls, entry, project, project_pid):
         description = entry["description"]
         return WorklogEntry(
             issue=cls._extract_issue(description),
@@ -73,7 +73,8 @@ class TogglApi(object):
             comment=description,
             tag=TogglTag(
                 id=entry["id"],
-                project=project["name"] if project is not None else None,
+                project_name=project["name"] if project is not None else None,
+                project_pid=project_pid,
                 billable=entry["billable"],
             ),
         )

@@ -1,6 +1,7 @@
 import datetime
 import json
 import pprint
+from collections import namedtuple
 
 import flask
 from jinja2 import Undefined
@@ -127,16 +128,11 @@ def index():
     )
     pairings = calculate_pairing(toggl_worklog["worklog"], jira_worklog["worklog"])
     rows = [
-        {
-            "toggl": pairing["toggl"],
-            "jira": pairing["jira"],
-            "dist": pairing["dist"],
-            "start": pairing["start"],
-            "actions": list(actions.gather_diff(pairing)),
-        }
+        determine_actions_and_map(pairing)
         for pairing in pairings
     ]
     days = utils.into_bins(rows, lambda e: day_bin.date_of(e["start"]), sorting='desc')
+    days = [aggregate_actions(day) for day in days]
 
     model = dict(
         days=days,
@@ -145,6 +141,59 @@ def index():
         entries=toggl_worklog["entries"],
     )
     return flask.render_template("index.html", model=model, **model)
+
+
+@app.route('/execute-actions', methods=["POST"])
+def execute_actions():
+    actions = json.loads(flask.request.form.get("actions"))
+    action_index = flask.request.form.get("action_index", default=0, type=int)
+
+    finished = True
+    if action_index < len(actions):
+        finished = False
+        action = actions[action_index]
+    if action_index > len(actions):
+        return flask.redirect("/")
+    display_action_index = min(action_index + 1, len(actions))
+    return flask.render_template(
+        "execute-actions.html",
+        finished=finished,
+        actions=actions,
+        action_index=action_index,
+        display_action_index=display_action_index,
+        next_form_data={
+            "actions": json.dumps(actions),
+            "action_index": action_index + 1,
+        },
+    )
+
+
+def aggregate_actions(day):
+    actions = [
+        action
+        for pairing in day[1]
+        for action in pairing["actions"]
+    ]
+    return {
+        "day": day[0],
+        "pairings": day[1],
+        "actions": actions,
+        "sync_form": {
+            "actions": json.dumps(actions)
+        }
+    }
+
+
+def determine_actions_and_map(pairing):
+    diff = actions.gather_diff(pairing)
+    return {
+        "toggl": pairing["toggl"],
+        "jira": pairing["jira"],
+        "dist": pairing["dist"],
+        "start": pairing["start"],
+        "actions": diff["actions"],
+        "messages": diff["messages"],
+    }
 
 
 def main():

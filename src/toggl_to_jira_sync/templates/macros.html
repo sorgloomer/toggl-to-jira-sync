@@ -1,0 +1,7 @@
+{% macro hidden_inputs(data) %}
+    {% if data %}
+    {% for k, v in data.items() %}
+    <input type="hidden" name="{{k}}" value="{{v}}">
+    {% endfor %}
+    {% endif %}
+{% endmacro %}

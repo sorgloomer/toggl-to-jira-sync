@@ -1,168 +1,187 @@
 from collections import OrderedDict, namedtuple
 
+from toggl_to_jira_sync.formats import datetime_toggl_format
 
-class NotificationLevel:
+
+class MessageLevel:
     info = "info"
     warning = "warning"
     danger = "danger"
 
 
-Action = namedtuple("Action", ["message", "level", "action", "params"])
+Message = namedtuple("Message", ["message", "level"])
+
+
+class ActionRecorder(object):
+    def __init__(self, issue, toggl_id, jira_id):
+        self.messages = []
+        self._toggl_updates = dict()
+        self._jira_updates = dict()
+        self._jira_delete = False
+        self._jira_create = False
+        self._toggl_id = toggl_id
+        self._jira_id = jira_id
+        self._issue = issue
+
+    def message(self, message, level, context=None):
+        if context is None:
+            context = {}
+        self.messages.append(Message(
+            message= message.format(**context),
+            level=level
+        ))
+
+    def toggl_update(self, field, value):
+        self._toggl_updates[field] = value
+
+    def jira_update(self, field, value):
+        self._jira_updates[field] = value
+
+    def jira_create(self, start, stop, comment):
+        self._jira_create = True
+        self._jira_updates.update(
+            start=start,
+            stop=stop,
+            comment=comment,
+        )
+
+    def jira_delete(self):
+        self._jira_delete = True
+
+    def serialize(self):
+        result = []
+        if self._toggl_updates:
+            result.append({
+                "type": "toggl",
+                "action": "update",
+                "id": self._toggl_id,
+                "values": self._format_toggl_updates(self._toggl_updates),
+                "issue": self._issue,
+            })
+        if self._jira_delete:
+            result.append({
+                "type": "jira",
+                "action": "delete",
+                "id": self._jira_id,
+                "issue": self._issue,
+            })
+        if self._jira_create:
+            result.append({
+                "type": "jira",
+                "action": "create",
+                "values": self._format_jira_updates(self._jira_updates),
+                "issue": self._issue,
+            })
+        elif not self._jira_delete and self._jira_updates:
+            result.append({
+                "type": "jira",
+                "action": "update",
+                "id": self._jira_id,
+                "values": self._format_jira_updates(self._jira_updates),
+                "issue": self._issue,
+            })
+        return result
+
+    @staticmethod
+    def _format_toggl_updates(values):
+        result = dict()
+        for k, v in values.items():
+            if k in ['start', 'stop']:
+                v = datetime_toggl_format.to_str(v)
+            result[k] = v
+        return result
+
+    @staticmethod
+    def _format_jira_updates(values):
+        result = dict()
+        for k, v in values.items():
+            if k in ['start', 'stop']:
+                v = datetime_toggl_format.to_str(v)
+            result[k] = v
+        return result
+
+
+def _gather_diff(recorder, toggl, jira):
+    if toggl is None:
+        if jira is not None:
+            recorder.message("Remove jira entry", MessageLevel.danger)
+            recorder.jira_delete()
+        return
+
+    if not toggl.tag.billable:
+        recorder.message("Update toggl to billable", MessageLevel.info)
+        recorder.toggl_update("billable", True)
+
+    expected_pid = _get_expected_project_pid(toggl)
+    if toggl.tag.project_pid != expected_pid:
+        recorder.message("Update toggl project", MessageLevel.warning)
+        recorder.toggl_update("pid", expected_pid)
+
+    toggl_comment = toggl.comment
+    toggl_start_new = _floor_minue(toggl.start)
+    if toggl.start != toggl_start_new:
+        recorder.message("Align toggl start", MessageLevel.info)
+        recorder.toggl_update("start", toggl_start_new)
+
+    toggl_stop_new = _floor_minue(toggl.stop)
+    if toggl.stop != toggl_stop_new:
+        recorder.message("Align toggl stop", MessageLevel.info)
+        recorder.toggl_update("stop", toggl_stop_new)
+
+    if jira is not None and jira.issue != toggl.issue:
+        recorder.message("Migrate jira worklog", MessageLevel.danger)
+        recorder.jira_delete()
+        jira = None
+
+    if jira is None:
+        recorder.message("Create jira entry", MessageLevel.danger)
+        recorder.jira_create(
+            start=toggl_start_new,
+            stop=toggl_stop_new,
+            comment=toggl_comment,
+        )
+        return
+
+    if jira.start != toggl_start_new:
+        recorder.message("Sync jira start", MessageLevel.danger)
+        recorder.jira_update("start", toggl_start_new)
+
+    if jira.stop != toggl_stop_new:
+        recorder.message("Sync jira stop", MessageLevel.danger)
+        recorder.jira_update("stop", toggl_stop_new)
+
+    if jira.comment != toggl_comment:
+        recorder.message("Sync jira comment", MessageLevel.danger)
+        recorder.jira_update("comment", toggl_comment)
 
 
 def gather_diff(pairing):
-    context = _extract_context(pairing)
-    for validator in validators():
-        yield from validator.check_and_list_messages(context)
-
-
-def _extract_context(pairing):
     toggl = pairing["toggl"]
     jira = pairing["jira"]
-    return _merge(
-        _map_sys("toggl__", toggl),
-        _map_sys("jira__", jira),
-        {
-            "toggl__id": toggl.tag.id if toggl is not None else None
-        }
+
+    recorder = ActionRecorder(
+        issue=toggl.issue if toggl is not None else jira.issue,
+        toggl_id=toggl.tag.id if toggl is not None else None,
+        jira_id=jira.tag.id if jira is not None else None,
     )
 
+    _gather_diff(
+        recorder=recorder,
+        toggl=toggl,
+        jira=jira,
+    )
 
-def _map_sys(prefix, x):
     return {
-        prefix + "present": x is not None,
-        prefix + "issue": x.issue if x is not None else None,
-        prefix + "start": x.start if x is not None else None,
-        prefix + "stop": x.stop if x is not None else None,
-        prefix + "comment": x.comment if x is not None else None,
+        "actions": recorder.serialize(),
+        "messages": recorder.messages,
     }
 
 
-def _merge(*dicts):
-    result = OrderedDict()
-    for x in dicts:
-        result.update(x)
-    return result
+def _get_expected_project_pid(toggl):
+    return None
 
 
-def validators():
-    return [
-        SyncValidator(
-            action="toggl_align_start",
-            action_params={"id": "toggl__id"},
-            message="Align toggl log start to whole minute {expected_value}.",
-            level=NotificationLevel.info,
-            field_name="toggl__start",
-            expected_value=_whole_minute_of("toggl__start"),
-            predicate=_value_of("toggl__present"),
-        ),
-
-        # SyncValidator(
-        #     message="Align toggl log stop to whole minute {expected_value}.",
-        #     field_name="toggl__stop",
-        #     expected_value=_whole_minute_of("toggl__stop"),
-        #     level=NotificationLevel.info,
-        #     predicate=_value_of("toggl__present"),
-        # ),
-        # PredicateValidator(
-        #     message="Create jira worklog for {toggl__issue} {toggl__start} {toggl__stop}",
-        #     level=NotificationLevel.danger,
-        #     predicate=_value_of("jira__present"),
-        # ),
-        # SyncValidator(
-        #     message="Jira log start {jira__start} does not match Toggl log start {toggl__start}",
-        #     field_name="jira__start",
-        #     expected_value=_value_of("toggl__start"),
-        #     level=NotificationLevel.danger,
-        #     predicate=_both_present,
-        # ),
-        # SyncValidator(
-        #     message="Jira log stop {jira__stop} does not match Toggl log stop {toggl__stop}",
-        #     field_name="jira__stop",
-        #     expected_value=_value_of("toggl__stop"),
-        #     level=NotificationLevel.danger,
-        #     predicate=_both_present,
-        # ),
-    ]
-
-
-class BaseValidator(object):
-    def __init__(self, message, level, action, action_params):
-        self.message = message
-        self.level = level
-        self.action = action
-        self.action_params = action_params
-
-    def check_and_list_messages(self, context):
-        raise NotImplemented
-
-    def make_action(self, context, expected_value=None):
-        temp_context = dict()
-        temp_context.update(context)
-        temp_context["expected_value"] = expected_value
-        message = self.message.format(**temp_context)
-        action_params = None
-        if self.action_params:
-            action_params = {
-                k: temp_context[v]
-                for k, v in self.action_params.items()
-            }
-        return Action(
-            action=self.action,
-            params=action_params,
-            message=message,
-            level=self.level,
-        )
-
-
-class SyncValidator(BaseValidator):
-    def __init__(self, message, level, action, action_params, field_name=None, expected_value=None, predicate=None):
-        if predicate is None:
-            predicate = _always
-        super().__init__(message=message, level=level, action=action, action_params=action_params)
-        self.field_name = field_name
-        self.expected_value = expected_value
-        self.predicate = predicate
-
-    def check_and_list_messages(self, context):
-        if not self.predicate(context):
-            return
-        original_value = context[self.field_name]
-        expected_value = self.expected_value(context)
-        if original_value == expected_value:
-            return
-        yield self.make_action(context, expected_value)
-        context[self.field_name] = expected_value
-
-
-class PredicateValidator(BaseValidator):
-    def __init__(self, message, level, action, action_params, predicate):
-        super().__init__(message=message, level=level, action=action, action_params=action_params)
-        self.predicate = predicate
-
-    def check_and_list_messages(self, context):
-        if self.predicate(context):
-            return
-        yield self.make_action(context)
-
-
-def _always(context):
-    return True
-
-
-def _both_present(context):
-    return context["toggl__start"] and context["jira__start"]
-
-
-def _to_whole_minute(dt):
+def _floor_minue(dt):
     if dt is None:
         return None
     return dt.replace(second=0, microsecond=0)
-
-
-def _whole_minute_of(key):
-    return lambda context: _to_whole_minute(context[key])
-
-
-def _value_of(key):
-    return lambda context: context[key]

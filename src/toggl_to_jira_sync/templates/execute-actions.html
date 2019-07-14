@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% import "macros.html" as macros %}
+
+{% block page_content %}
+    <div>
+        {% for action in actions %}
+            <div class="p-3 mb-2
+                {% if loop.index0 < action_index %}
+                    bg-success
+                {% elif loop.index0 == action_index %}
+                    bg-primary
+                {% else %}
+                    bg-secondary
+                {% endif %}
+                text-white
+            ">
+                {{ action.type }} {{ action.action }} {{ action.id or "new" }} of {{ action.issue }}
+                <div class="d-none">{{ action.values }}</div>
+            </div>
+        {% endfor %}
+    </div>
+    {% if finished %}<h3>Redirecting back to dashboard...</h3>{% endif %}
+
+    <form method="POST" id="nextstep">
+        {{ macros.hidden_inputs(next_form_data) }}
+    </form>
+    <script>
+        window.addEventListener("load", () => {
+            document.getElementById("nextstep").submit();
+        });
+    </script>
+
+{% endblock %}

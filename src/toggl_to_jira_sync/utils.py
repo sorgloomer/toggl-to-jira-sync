@@ -1,8 +1,7 @@
-import functools
 from collections import OrderedDict
 
 
-def into_bins(items, key, sorting='asc') -> object:
+def into_bins(items, key, sorting='asc'):
     indexed = group_by(items, key)
     result = list(indexed.items())
     if not sorting:
