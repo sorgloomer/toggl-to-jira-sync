@@ -8,11 +8,10 @@ from markupsafe import Markup
 from tzlocal import get_localzone
 from werkzeug.urls import url_encode
 
-from toggl_to_jira_sync import config, utils, actions
-from toggl_to_jira_sync.apis import TogglApi
+from toggl_to_jira_sync import config, utils, actions, service
 from toggl_to_jira_sync.core import DayBin, calculate_pairing
 from toggl_to_jira_sync.formats import datetime_toggl_format
-from toggl_to_jira_sync.service import create_jira_api, aware_now
+from toggl_to_jira_sync.service import aware_now
 
 app = flask.Flask(__name__)
 
@@ -104,29 +103,27 @@ def _not_defined(x):
 def index():
     delta = flask.request.args.get("delta", default=0, type=int)
     day_bin = DayBin()
-    secrets = config.get_secrets()
-    toggl_api = TogglApi(secrets=secrets)
-    jira_api = create_jira_api(secrets)
+    apis = service.get_apis()
     today = day_bin.date_of(aware_now())
 
-    if toggl_api.secrets is None:
+    if apis.secrets is None:
         return flask.render_template("setup.html")
 
     min_datetime = day_bin.start_datetime_of(today) + datetime.timedelta(days=delta - 7)
     max_datetime = day_bin.end_datetime_of(today) + datetime.timedelta(days=delta)
 
-    jira_worklog = jira_api.get_worklog(
-        author=secrets.jira_username,
+    jira_worklog = apis.jira.get_worklog(
+        author=apis.secrets.jira_username,
         min_datetime=min_datetime,
         max_datetime=max_datetime,
     )
-    toggl_worklog = toggl_api.get_worklog(
-        workspace_name=secrets.toggl_workspace_name,
+    toggl_worklog = apis.toggl.get_worklog(
+        workspace_name=apis.secrets.toggl_workspace_name,
         min_datetime=min_datetime,
         max_datetime=max_datetime,
     )
     pairings = calculate_pairing(toggl_worklog["worklog"], jira_worklog["worklog"])
-    diff_gatherer = actions.DiffGather(secrets=secrets, projects=toggl_worklog["projects"])
+    diff_gatherer = actions.DiffGather(secrets=apis.secrets, projects=toggl_worklog["projects"])
     rows = [
         determine_actions_and_map(pairing, diff_gatherer)
         for pairing in pairings
@@ -152,8 +149,7 @@ def execute_actions():
     if action_index < len(actions):
         finished = False
         action = actions[action_index]
-    if action_index > len(actions):
-        return flask.redirect("/")
+        service.ActionExecutor().execute(action)
     display_action_index = min(action_index + 1, len(actions))
     return flask.render_template(
         "execute-actions.html",

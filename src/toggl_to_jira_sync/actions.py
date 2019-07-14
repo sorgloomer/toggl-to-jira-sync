@@ -1,7 +1,7 @@
 from collections import OrderedDict, namedtuple
 
 from toggl_to_jira_sync import utils
-from toggl_to_jira_sync.formats import datetime_toggl_format
+from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_format
 
 
 class MessageLevel:
@@ -97,7 +97,7 @@ class ActionRecorder(object):
         result = dict()
         for k, v in values.items():
             if k in ['start', 'stop']:
-                v = datetime_toggl_format.to_str(v)
+                v = datetime_jira_format.to_str(v)
             result[k] = v
         return result
 
@@ -109,7 +109,7 @@ class DiffGather(object):
             k: projects_by_name[v]
             for k, v in secrets.toggl_projects.items()
         }
-        print(self.projects_by_key)
+        self.secrets = secrets
 
     def gather_diff(self, pairing):
         toggl = pairing["toggl"]
@@ -160,6 +160,14 @@ def _gather_diff(recorder, toggl, jira, diff_params):
     if toggl.stop != toggl_stop_new:
         recorder.message("Align toggl stop", MessageLevel.info)
         recorder.toggl_update("stop", toggl_stop_new)
+
+    if toggl.issue in diff_params.secrets.jira_projects_skip:
+        if jira is None:
+            recorder.message("Skip for jira", MessageLevel.info)
+        else:
+            recorder.message("Delete jira entry", MessageLevel.danger)
+            recorder.jira_delete()
+        return
 
     if jira is not None and jira.issue != toggl.issue:
         recorder.message("Migrate jira worklog", MessageLevel.danger)

@@ -19,15 +19,17 @@
             </div>
         {% endfor %}
     </div>
-    {% if finished %}<h3>Redirecting back to dashboard...</h3>{% endif %}
-
-    <form method="POST" id="nextstep">
-        {{ macros.hidden_inputs(next_form_data) }}
-    </form>
+    {% if finished %}
+    <a class="btn btn-link" href="/">Back to dashboard</a>
+    {% else %}
     <script>
         window.addEventListener("load", () => {
             document.getElementById("nextstep").submit();
         });
     </script>
+    {% endif %}
 
+    <form method="POST" id="nextstep" class="d-none">
+        {{ macros.hidden_inputs(next_form_data) }}
+    </form>
 {% endblock %}

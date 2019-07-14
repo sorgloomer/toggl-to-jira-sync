@@ -1,5 +1,5 @@
 import datetime
-import pprint
+import logging
 from collections import namedtuple
 
 import requests
@@ -9,6 +9,8 @@ from toggl_to_jira_sync import utils, dicts
 from toggl_to_jira_sync.config import get_secrets
 from toggl_to_jira_sync.core import WorklogEntry
 from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_date_format, datetime_jira_format
+
+logger = logging.getLogger(__name__)
 
 JiraTag = namedtuple("JiraTag", ["id"])
 TogglTag = namedtuple("TogglTag", ["id", "project_name", "project_pid", "billable", "jira_project"])
@@ -22,12 +24,21 @@ class TogglApi(object):
         self.api_base = "https://www.toggl.com/api/"
 
     def _get(self, url, params=None):
-        resp = requests.get(
+        return self._request("get", url, params=params)
+
+    def _request(self, method, url, params=None, json=None):
+        resp = requests.request(
+            method,
             self.api_base + url,
             auth=HTTPBasicAuth(self.secrets.toggl_apitoken, "api_token"),
             params=params,
+            json=json
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except:
+            logger.debug(resp.text)
+            raise
         return resp.json()
 
     def get_projects(self, workspace_id):
@@ -63,6 +74,9 @@ class TogglApi(object):
             "worklog": worklog,
         }
 
+    def update(self, id, data):
+        self._put_entry(id, data)
+
     @classmethod
     def _extract_entry(cls, entry, project, project_pid):
         description = entry["description"]
@@ -85,6 +99,20 @@ class TogglApi(object):
     @staticmethod
     def _extract_issue(description):
         return utils.strip_after_any(description.strip(), (":", " ")).strip()
+
+    def _get_entry(self, id):
+        return self._get("v8/time_entries/{id}".format(id=id))
+
+    def _put_entry(self, id, data):
+        data = [
+            ("description", data.get("comment")),
+            ("start", data.get("start")),
+            ("stop", data.get("stop")),
+            ("pid", data.get("pid")),
+            ("billable", data.get("billable")),
+        ]
+        data = {k: v for k, v in data if v is not None}
+        return self._request("put", "v8/time_entries/{id}".format(id=id), json={"time_entry": data})
 
 
 JiraWorklogFilter = namedtuple("JiraWorklogFilter", ["author", "min_date", "max_date"])
@@ -122,12 +150,41 @@ class JiraApi(object):
             for worklog_item in self._fetch_worklog(worklog_filter, issue)
         ]
 
+    def delete_entry(self, issue, worklog_id):
+        self._request(
+            "delete",
+            "rest/api/2/issue/{issue}/worklog/{worklog_id}".format(
+                issue=issue,
+                worklog_id=worklog_id,
+            ))
+
+    def add_entry(self, issue, data):
+        start = datetime_jira_format.from_str(data["start"])
+        stop = datetime_jira_format.from_str(data["stop"])
+        duration = stop - start
+        data = {
+            "timeSpentSeconds": round(duration.total_seconds()),
+            "started": data["start"],
+            "comment": data["comment"],
+        }
+        logger.info(data)
+        self._request("post", "rest/api/2/issue/{issue}/worklog".format(issue=issue), json=data)
+
     def _get(self, url, params=None):
-        resp = self.session.get(
+        return self._request("get", url, params=params)
+
+    def _request(self, method, url, params=None, json=None):
+        resp = self.session.request(
+            method,
             self.api_base + url,
             params=params,
+            json=json,
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except:
+            logger.debug(resp.text)
+            raise
         return resp.json()
 
     @staticmethod

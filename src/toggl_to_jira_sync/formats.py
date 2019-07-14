@@ -33,5 +33,5 @@ class DatetimeFormat:
 
 
 datetime_jira_date_format = DatetimeFormat("%Y-%m-%d")
-datetime_jira_format = DatetimeFormat("%Y-%m-%dT%H:%M:%S.%f%z")
+datetime_jira_format = DatetimeFormat("%Y-%m-%dT%H:%M:%S.000%z")
 datetime_toggl_format = DatetimeTogglFormat()

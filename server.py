@@ -1,6 +1,8 @@
+import logging
 import os.path
 import sys
 
+logging.basicConfig(level=logging.DEBUG)
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 from toggl_to_jira_sync import app
 

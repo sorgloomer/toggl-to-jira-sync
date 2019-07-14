@@ -9,7 +9,7 @@ def get_secrets():
     if not os.path.isfile(secrets_path):
         return None
     secrets = configparser.ConfigParser()
-    secrets.read(secrets_path)
+    secrets.read(secrets_path, encoding='utf-8')
     return Secrets(secrets)
 
 
@@ -21,6 +21,7 @@ class Secrets(object):
         self.jira_password = config.get("secrets", "jira.password")
         self.jira_url_base = config.get("config", "jira.url_base")
         self.toggl_projects = _get_config_dict(config, "config", "toggl.projects.")
+        self.jira_projects_skip = _get_config_array(config, "config", "jira.projects.skip")
 
 
 def argparser():
@@ -39,3 +40,8 @@ def _get_config_dict(config, section, prefix):
         if k.startswith(prefix):
             result[k[len(prefix):]] = v
     return result
+
+
+def _get_config_array(config, section, key):
+    value = config.get(section, key, fallback="")
+    return value.split(",") if value else []

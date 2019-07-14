@@ -78,8 +78,3 @@
         </div>
         {% endfor %}
 {% endblock %}
-
-{% block page_body %}
-    {{ super() }}
-    <div class="m-3 code">{{ model | pformat | pre }}</div>
-{% endblock %}
