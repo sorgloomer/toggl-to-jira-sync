@@ -14,6 +14,10 @@
         margin-top: -10px;
         margin-left: 1rem;
     }
+    .sneaky-form {
+        display: inline-block;
+        margin: 0;
+    }
 </style>
 {% endblock %}
 
@@ -22,6 +26,9 @@
             <h1>Logs of 7 days</h1>
             <a href="{{ modify_query(delta=delta-7) }}" class="btn btn-secondary">Previous week</a>
             <a href="{{ modify_query(delta=None) }}" class="btn btn-secondary">Jump to now</a>
+            <form action="/attempt-shutdown" method="post" class="sneaky-form">
+                <button type="submit" class="btn btn-secondary">Shutdown</button>
+            </form>
         </div>
         {% for daydef in days %}
             {% set day = daydef.day %}

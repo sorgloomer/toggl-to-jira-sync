@@ -1,0 +1,1 @@
+SHUTDOWN_ON_PAGE_CLOSE = False

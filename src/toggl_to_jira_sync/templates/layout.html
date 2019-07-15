@@ -25,5 +25,13 @@
         {% endblock %}
     </div>
     {% endblock %}
+
+    {% if config.SHUTDOWN_ON_PAGE_CLOSE %}
+    <script>
+        window.addEventListener("beforeunload", () => {
+            navigator.sendBeacon('/attempt-shutdown', new FormData());
+        });
+    </script>
+    {% endif %}
 </body>
 </html>

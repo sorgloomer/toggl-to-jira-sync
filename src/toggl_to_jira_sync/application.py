@@ -1,6 +1,7 @@
 import datetime
 import json
 import pprint
+import time
 
 import flask
 from jinja2 import Undefined
@@ -14,6 +15,17 @@ from toggl_to_jira_sync.formats import datetime_toggl_format
 from toggl_to_jira_sync.service import aware_now
 
 app = flask.Flask(__name__)
+app.config.from_pyfile('config/default.py')
+app.config.from_envvar('APP_CONFIG_FILE', silent=True)
+
+app.last_request_time = 0.0
+
+
+@app.before_request
+def request_timestamp():
+    if flask.request.path != "/attempt-shutdown":
+        app.last_request_time = time.monotonic()
+    app.logger.info("Serving request %s", flask.request.path)
 
 
 @app.template_filter("pretty_json")
@@ -162,6 +174,24 @@ def execute_actions():
             "action_index": action_index + 1,
         },
     )
+
+
+@app.route('/attempt-shutdown', methods=["POST"])
+def handle_attempt_shutdown():
+    attempt_shutdown_time = time.monotonic()
+    time.sleep(0.5)  # to see if anyone is still making requests, like a page reload
+    if app.last_request_time < attempt_shutdown_time - 0.5:
+        shutdown_server()
+        return "Server shutting down...\n<script>window.close();</script>"
+    else:
+        return "Some new requests prevented shutdown."
+
+
+def shutdown_server():
+    func = flask.request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Not running with the Werkzeug Server')
+    func()
 
 
 def aggregate_actions(day):
