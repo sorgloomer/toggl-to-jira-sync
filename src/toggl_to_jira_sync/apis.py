@@ -79,19 +79,21 @@ class TogglApi(object):
 
     @classmethod
     def _extract_entry(cls, entry, project, project_pid):
-        description = entry["description"]
+        description = entry.get("description", "")
         issue = cls._extract_issue(description)
         jira_project = _extract_jira_project_from_issue(issue)
+        start = datetime_toggl_format.from_str(entry.get("start"))
+        stop = datetime_toggl_format.from_str(entry.get("stop"))
         return WorklogEntry(
             issue=issue,
-            start=datetime_toggl_format.from_str(entry["start"]),
-            stop=datetime_toggl_format.from_str(entry["stop"]),
+            start=start,
+            stop=stop,
             comment=description,
             tag=TogglTag(
                 id=entry["id"],
                 project_name=project["name"] if project is not None else None,
                 project_pid=project_pid,
-                billable=entry["billable"],
+                billable=entry.get("billable"),
                 jira_project=jira_project,
             ),
         )
