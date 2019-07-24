@@ -59,3 +59,10 @@ def _keyify(key):
 
 def _id_of(x):
     return x['id']
+
+
+def first(items, predicate, default=None):
+    for item in items:
+        if predicate(item):
+            return item
+    return default

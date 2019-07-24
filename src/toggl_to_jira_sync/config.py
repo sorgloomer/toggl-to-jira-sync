@@ -22,6 +22,7 @@ class Secrets(object):
         self.jira_url_base = config.get("config", "jira.url_base")
         self.toggl_projects = _get_config_dict(config, "config", "toggl.projects.")
         self.jira_projects_skip = _get_config_array(config, "config", "jira.projects.skip")
+        self.toggl_nonbillable = _get_config_array(config, "config", "jira.projects.skip")
 
 
 def argparser():

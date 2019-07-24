@@ -141,9 +141,10 @@ def _gather_diff(recorder, toggl, jira, diff_params):
             recorder.jira_delete()
         return
 
-    if not toggl.tag.billable:
-        recorder.message("Update toggl to billable", MessageLevel.info)
-        recorder.toggl_update("billable", True)
+    expected_billable = toggl.tag.jira_project not in diff_params.secrets.toggl_nonbillable
+    if toggl.tag.billable != expected_billable:
+        recorder.message("Update toggl billability to {}".format(expected_billable), MessageLevel.info)
+        recorder.toggl_update("billable", expected_billable)
 
     expected_pid = _get_expected_project_pid(toggl, diff_params)
     if expected_pid is not None and toggl.tag.project_pid != expected_pid:
@@ -161,7 +162,7 @@ def _gather_diff(recorder, toggl, jira, diff_params):
         recorder.message("Align toggl stop", MessageLevel.info)
         recorder.toggl_update("stop", toggl_stop_new)
 
-    if toggl.issue in diff_params.secrets.jira_projects_skip:
+    if toggl.tag.jira_project in diff_params.secrets.jira_projects_skip:
         if jira is None:
             recorder.message("Skip for jira", MessageLevel.info)
         else:

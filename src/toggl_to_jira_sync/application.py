@@ -2,6 +2,7 @@ import datetime
 import json
 import pprint
 import time
+from collections import namedtuple
 
 import flask
 from jinja2 import Undefined
@@ -11,12 +12,14 @@ from werkzeug.urls import url_encode
 
 from toggl_to_jira_sync import config, utils, actions, service
 from toggl_to_jira_sync.core import DayBin, calculate_pairing
-from toggl_to_jira_sync.formats import datetime_toggl_format
+from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_my_date_format
 from toggl_to_jira_sync.service import aware_now
+from toggl_to_jira_sync.session import SingletonMemorySessionInterface
 
 app = flask.Flask(__name__)
 app.config.from_pyfile('config/default.py')
 app.config.from_envvar('APP_CONFIG_FILE', silent=True)
+app.session_interface = SingletonMemorySessionInterface()
 
 app.last_request_time = 0.0
 
@@ -111,9 +114,57 @@ def _not_defined(x):
     return x is None or x is Undefined
 
 
+IndexArgs = namedtuple("IndexArgs", ["delta"])
+
+
 @app.route('/')
 def index():
+    args = _get_index_args()
+    model = _ensure_model(args.delta)
+    return flask.render_template("index.html", model=model, **model)
+
+
+@app.route('/', methods=["POST"])
+def index_post():
+    args = _get_index_args()
+    action = flask.request.form.get("action")
+    if action == "refresh":
+        _ensure_model(args.delta, force_refresh=True)
+        return reload_using_get()
+    if action == "sync":
+        action_day = flask.request.form.get("day")
+        days = _ensure_model(args.delta)["days"]
+        day = utils.first(days, lambda d: d["key"] == action_day)
+        flask.session["running_action"] = SyncState(day["actions"])
+        return flask.redirect(flask.url_for("execute_actions"))
+    raise KeyError("Unknown action {action}".format(action=action))
+
+
+class SyncState(object):
+    def __init__(self, actions, index=0):
+        self.actions = actions
+        self.index = index
+
+
+def reload_using_get():
+    return flask.redirect(flask.request.url)
+
+
+def _get_index_args():
     delta = flask.request.args.get("delta", default=0, type=int)
+    return IndexArgs(delta=delta)
+
+
+def _ensure_model(delta, force_refresh=False):
+    session = flask.session
+    model = session.get("model")
+    if force_refresh or model is None or model["delta"] != delta:
+        model = _fetch_model(delta)
+        session["model"] = model
+    return model
+
+
+def _fetch_model(delta):
     day_bin = DayBin()
     apis = service.get_apis()
     today = day_bin.date_of(aware_now())
@@ -143,36 +194,40 @@ def index():
     days = utils.into_bins(rows, lambda e: day_bin.date_of(e["start"]), sorting='desc')
     days = [aggregate_actions(day) for day in days]
 
-    model = dict(
+    return dict(
         days=days,
         delta=delta,
         projects=toggl_worklog["projects"],
         entries=toggl_worklog["entries"],
     )
-    return flask.render_template("index.html", model=model, **model)
 
 
-@app.route('/execute-actions', methods=["POST"])
+def invalidate_cached_model():
+    flask.session["model"] = None
+
+
+@app.route('/execute-actions', methods=["GET", "POST"])
 def execute_actions():
-    actions = json.loads(flask.request.form.get("actions"))
-    action_index = flask.request.form.get("action_index", default=0, type=int)
+    action_state = flask.session["running_action"]
+    action_list = action_state.actions
+    action_index = action_state.index
 
     finished = True
-    if action_index < len(actions):
+    if action_index < len(action_list):
         finished = False
-        action = actions[action_index]
-        service.ActionExecutor().execute(action)
-    display_action_index = min(action_index + 1, len(actions))
+        if flask.request.method == "POST":
+            action = action_list[action_index]
+            service.ActionExecutor().execute(action)
+            action_state.index += 1
+    else:
+        invalidate_cached_model()
+    display_action_index = min(action_index + 1, len(action_list))
     return flask.render_template(
         "execute-actions.html",
         finished=finished,
-        actions=actions,
+        action_list=action_list,
         action_index=action_index,
         display_action_index=display_action_index,
-        next_form_data={
-            "actions": json.dumps(actions),
-            "action_index": action_index + 1,
-        },
     )
 
 
@@ -201,6 +256,7 @@ def aggregate_actions(day):
         for action in pairing["actions"]
     ]
     return {
+        "key": datetime_my_date_format.to_str(day[0]),
         "day": day[0],
         "pairings": day[1],
         "actions": actions,

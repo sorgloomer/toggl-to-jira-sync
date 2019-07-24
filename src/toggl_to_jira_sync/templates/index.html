@@ -36,12 +36,16 @@
             <div class="card mb-3">
                 <div class="card-header">
                     <h3 class="d-inline">{{ day | format_datetime("%A, %Y-%m-%d") }}</h3>
-                    {% if daydef.sync_form %}
-                        <form method="POST" action="/execute-actions" class="d-inline">
-                            {{ macros.hidden_inputs(daydef.sync_form) }}
-                            <button class="btn btn-primary btn-sm" type="submit">Sync ({{ daydef.actions | length }} actions)</button>
-                        </form>
-                    {% endif %}
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="sync">
+                        <input type="hidden" name="day" value="{{ daydef.key }}">
+                        <button class="btn btn-primary btn-sm" type="submit">Sync ({{ daydef.actions | length }} actions)</button>
+                    </form>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="refresh">
+                        <input type="hidden" name="day" value="{{ daydef.key }}">
+                        <button class="btn btn-secondary btn-sm" type="submit">Refresh day</button>
+                    </form>
                 </div>
                 <div class="card-body">
                 {% for log_comparison in rows %}

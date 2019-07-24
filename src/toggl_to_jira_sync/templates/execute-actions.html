@@ -3,7 +3,7 @@
 
 {% block page_content %}
     <div>
-        {% for action in actions %}
+        {% for action in action_list %}
             <div class="p-3 mb-2
                 {% if loop.index0 < action_index %}
                     bg-success
@@ -29,7 +29,5 @@
     </script>
     {% endif %}
 
-    <form method="POST" id="nextstep" class="d-none">
-        {{ macros.hidden_inputs(next_form_data) }}
-    </form>
+    <form method="POST" id="nextstep" class="d-none"></form>
 {% endblock %}
