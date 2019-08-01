@@ -32,11 +32,11 @@ class ActionRecorder(object):
             level=level
         ))
 
-    def toggl_update(self, field, value):
-        self._toggl_updates[field] = value
+    def toggl_update(self, **kwargs):
+        self._toggl_updates.update(kwargs)
 
-    def jira_update(self, field, value):
-        self._jira_updates[field] = value
+    def jira_update(self, **kwargs):
+        self._jira_updates.update(kwargs)
 
     def jira_create(self, start, stop, comment):
         self._jira_create = True
@@ -56,7 +56,7 @@ class ActionRecorder(object):
                 "type": "toggl",
                 "action": "update",
                 "id": self._toggl_id,
-                "values": self._format_toggl_updates(self._toggl_updates),
+                "values": self._toggl_updates,
                 "issue": self._issue,
             })
         if self._jira_delete:
@@ -70,7 +70,7 @@ class ActionRecorder(object):
             result.append({
                 "type": "jira",
                 "action": "create",
-                "values": self._format_jira_updates(self._jira_updates),
+                "values": self._jira_updates,
                 "issue": self._issue,
             })
         elif not self._jira_delete and self._jira_updates:
@@ -78,27 +78,9 @@ class ActionRecorder(object):
                 "type": "jira",
                 "action": "update",
                 "id": self._jira_id,
-                "values": self._format_jira_updates(self._jira_updates),
+                "values": self._jira_updates,
                 "issue": self._issue,
             })
-        return result
-
-    @staticmethod
-    def _format_toggl_updates(values):
-        result = dict()
-        for k, v in values.items():
-            if k in ['start', 'stop']:
-                v = datetime_toggl_format.to_str(v)
-            result[k] = v
-        return result
-
-    @staticmethod
-    def _format_jira_updates(values):
-        result = dict()
-        for k, v in values.items():
-            if k in ['start', 'stop']:
-                v = datetime_jira_format.to_str(v)
-            result[k] = v
         return result
 
 
@@ -144,23 +126,23 @@ def _gather_diff(recorder, toggl, jira, diff_params):
     expected_billable = toggl.tag.jira_project not in diff_params.secrets.toggl_nonbillable
     if toggl.tag.billable != expected_billable:
         recorder.message("Update toggl billability to {}".format(expected_billable), MessageLevel.info)
-        recorder.toggl_update("billable", expected_billable)
+        recorder.toggl_update(billable=expected_billable)
 
     expected_pid = _get_expected_project_pid(toggl, diff_params)
     if expected_pid is not None and toggl.tag.project_pid != expected_pid:
         recorder.message("Update toggl project", MessageLevel.warning)
-        recorder.toggl_update("pid", expected_pid)
+        recorder.toggl_update(pid=expected_pid)
 
     toggl_comment = toggl.comment
     toggl_start_new = _floor_minue(toggl.start)
     if toggl.start != toggl_start_new:
         recorder.message("Align toggl start", MessageLevel.info)
-        recorder.toggl_update("start", toggl_start_new)
+        recorder.toggl_update(start=datetime_toggl_format.to_str(toggl_start_new))
 
     toggl_stop_new = _floor_minue(toggl.stop)
     if toggl.stop != toggl_stop_new:
         recorder.message("Align toggl stop", MessageLevel.info)
-        recorder.toggl_update("stop", toggl_stop_new)
+        recorder.toggl_update(stop=datetime_toggl_format.to_str(toggl_stop_new))
 
     if toggl.tag.jira_project in diff_params.secrets.jira_projects_skip:
         if jira is None:
@@ -170,31 +152,34 @@ def _gather_diff(recorder, toggl, jira, diff_params):
             recorder.jira_delete()
         return
 
-    if jira is not None and jira.issue != toggl.issue:
-        recorder.message("Migrate jira worklog", MessageLevel.danger)
-        recorder.jira_delete()
-        jira = None
+    expected_jira = dict(
+        start=datetime_jira_format.to_str(toggl_start_new),
+        stop=datetime_jira_format.to_str(toggl_stop_new),
+        comment=toggl_comment
+    )
 
     if jira is None:
         recorder.message("Create jira entry", MessageLevel.danger)
-        recorder.jira_create(
-            start=toggl_start_new,
-            stop=toggl_stop_new,
-            comment=toggl_comment,
-        )
+        recorder.jira_create(**expected_jira)
+        return
+
+    if jira.issue != toggl.issue:
+        recorder.message("Move Jira worklog to other task", MessageLevel.danger)
+        recorder.jira_delete()
+        recorder.jira_create(**expected_jira)
         return
 
     if jira.start != toggl_start_new:
         recorder.message("Sync jira start", MessageLevel.danger)
-        recorder.jira_update("start", toggl_start_new)
+        recorder.jira_update(start=expected_jira["start"])
 
     if jira.stop != toggl_stop_new:
         recorder.message("Sync jira stop", MessageLevel.danger)
-        recorder.jira_update("stop", toggl_stop_new)
+        recorder.jira_update(stop=expected_jira["stop"])
 
     if jira.comment != toggl_comment:
-        recorder.message("Sync jira comment", MessageLevel.danger)
-        recorder.jira_update("comment", toggl_comment)
+        recorder.message("Sync jira comment", MessageLevel.warning)
+        recorder.jira_update(comment=expected_jira["comment"])
 
 
 def _get_expected_project_pid(toggl, diff_params):

@@ -50,3 +50,9 @@ class ActionExecutor(object):
 
     def _action_jira_create(self, action):
         self.apis.jira.add_entry(action["issue"], action["values"])
+
+    def _action_jira_delete(self, action):
+        self.apis.jira.delete_entry(action["issue"], action["id"])
+
+    def _action_jira_update(self, action):
+        self.apis.jira.add_entry(action["issue"], action["values"])
