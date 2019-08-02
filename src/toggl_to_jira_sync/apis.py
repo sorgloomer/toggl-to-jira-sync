@@ -5,8 +5,8 @@ from collections import namedtuple
 import requests
 from requests.auth import HTTPBasicAuth
 
+from toggl_to_jira_sync import settingsloader
 from toggl_to_jira_sync import utils, dicts
-from toggl_to_jira_sync.config import get_secrets
 from toggl_to_jira_sync.core import WorklogEntry
 from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_date_format, datetime_jira_format
 
@@ -22,6 +22,7 @@ class BaseApi(object):
         self.api_base = api_base
 
     def _request(self, method, url, params=None, json=None):
+        logger.debug("Api call %s %s %s %s", method, url, params, json)
         resp = self.session.request(
             method,
             self.api_base + url,
@@ -43,7 +44,7 @@ class TogglApi(BaseApi):
         if api_base is None:
             api_base = "https://www.toggl.com/api/"
         if secrets is None:
-            secrets = get_secrets()
+            secrets = settingsloader.get_secrets()
         session = requests.Session()
         session.auth = HTTPBasicAuth(secrets.toggl_apitoken, "api_token")
         super().__init__(session, api_base)
@@ -182,16 +183,11 @@ class JiraApi(BaseApi):
         )
 
     def add_entry(self, issue, data):
-        start = datetime_jira_format.from_str(data["start"])
-        stop = datetime_jira_format.from_str(data["stop"])
-        duration = stop - start
-        data = {
-            "timeSpentSeconds": round(duration.total_seconds()),
-            "started": data["start"],
-            "comment": data["comment"],
-        }
-        logger.info(data)
-        self._request("post", "rest/api/2/issue/{issue}/worklog".format(issue=issue), json=data)
+        self._request(
+            "post",
+            "rest/api/2/issue/{issue}/worklog".format(issue=issue),
+            json=data
+        )
 
     def _get(self, url, params=None):
         return self._request("get", url, params=params)
@@ -225,7 +221,7 @@ class JiraApi(BaseApi):
                     issue=issue["key"],
                     start=started,
                     stop=ended,
-                    comment=worklog["comment"],
+                    comment=worklog.get("comment", ""),
                     tag=JiraTag(
                         id=worklog["id"],
                         raw_entry=worklog

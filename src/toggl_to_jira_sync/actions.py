@@ -1,7 +1,10 @@
-from collections import OrderedDict, namedtuple
+import logging
+from collections import namedtuple
 
 from toggl_to_jira_sync import utils
 from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_format
+
+logger = logging.getLogger(__name__)
 
 
 class MessageLevel:
@@ -11,6 +14,7 @@ class MessageLevel:
 
 
 Message = namedtuple("Message", ["message", "level"])
+JIRA_FIELDS = {"started", "timeSpentSeconds", "comment"}
 
 
 class ActionRecorder(object):
@@ -28,23 +32,21 @@ class ActionRecorder(object):
         if context is None:
             context = {}
         self.messages.append(Message(
-            message= message.format(**context),
+            message=message.format(**context),
             level=level
         ))
 
     def toggl_update(self, **kwargs):
         self._toggl_updates.update(kwargs)
 
-    def jira_update(self, **kwargs):
-        self._jira_updates.update(kwargs)
+    def jira_update(self, key, value):
+        assert key in JIRA_FIELDS
+        self._jira_updates[key] = value
 
-    def jira_create(self, start, stop, comment):
+    def jira_create(self, data):
+        assert set(data) == JIRA_FIELDS
         self._jira_create = True
-        self._jira_updates.update(
-            start=start,
-            stop=stop,
-            comment=comment,
-        )
+        self._jira_updates.update(data)
 
     def jira_delete(self):
         self._jira_delete = True
@@ -85,13 +87,13 @@ class ActionRecorder(object):
 
 
 class DiffGather(object):
-    def __init__(self, secrets, projects):
-        projects_by_name = utils.index_by(projects, "name")
-        self.projects_by_key = {
-            k: projects_by_name[v]
-            for k, v in secrets.toggl_projects.items()
+    def __init__(self, settings, projects):
+        toggl_projects_by_name = utils.index_by(projects, "name")
+        self.toggl_projects_by_key = {
+            k: toggl_projects_by_name[v.toggl_project] if v.toggl_project is not None else None
+            for k, v in settings.projects.items()
         }
-        self.secrets = secrets
+        self.settings = settings
 
     def gather_diff(self, pairing):
         toggl = pairing["toggl"]
@@ -119,75 +121,84 @@ class DiffGather(object):
 def _gather_diff(recorder, toggl, jira, diff_params):
     if toggl is None:
         if jira is not None:
-            recorder.message("Remove jira entry", MessageLevel.danger)
+            recorder.message("Remove Jira entry", MessageLevel.danger)
             recorder.jira_delete()
         return
 
-    expected_billable = toggl.tag.jira_project not in diff_params.secrets.toggl_nonbillable
+    project_setting = diff_params.settings.projects[toggl.tag.jira_project]
+    expected_billable = project_setting.toggl_billable
     if toggl.tag.billable != expected_billable:
-        recorder.message("Update toggl billability to {}".format(expected_billable), MessageLevel.info)
+        recorder.message("Update Toggl billability to {}".format(expected_billable), MessageLevel.info)
         recorder.toggl_update(billable=expected_billable)
 
     expected_pid = _get_expected_project_pid(toggl, diff_params)
     if expected_pid is not None and toggl.tag.project_pid != expected_pid:
-        recorder.message("Update toggl project", MessageLevel.warning)
+        recorder.message("Update Toggl project", MessageLevel.warning)
         recorder.toggl_update(pid=expected_pid)
 
     toggl_comment = toggl.comment
-    toggl_start_new = _floor_minue(toggl.start)
+    toggl_start_new = _floor_minute(toggl.start)
     if toggl.start != toggl_start_new:
-        recorder.message("Align toggl start", MessageLevel.info)
+        recorder.message("Align Toggl start", MessageLevel.info)
         recorder.toggl_update(start=datetime_toggl_format.to_str(toggl_start_new))
 
-    toggl_stop_new = _floor_minue(toggl.stop)
+    toggl_stop_new = _floor_minute(toggl.stop)
     if toggl.stop != toggl_stop_new:
-        recorder.message("Align toggl stop", MessageLevel.info)
+        recorder.message("Align Toggl stop", MessageLevel.info)
         recorder.toggl_update(stop=datetime_toggl_format.to_str(toggl_stop_new))
 
-    if toggl.tag.jira_project in diff_params.secrets.jira_projects_skip:
+    if project_setting.jira_skip:
         if jira is None:
-            recorder.message("Skip for jira", MessageLevel.info)
+            recorder.message("Skip for Jira", MessageLevel.info)
         else:
-            recorder.message("Delete jira entry", MessageLevel.danger)
+            recorder.message("Delete Jira entry", MessageLevel.danger)
             recorder.jira_delete()
         return
 
-    expected_jira = dict(
-        start=datetime_jira_format.to_str(toggl_start_new),
-        stop=datetime_jira_format.to_str(toggl_stop_new),
-        comment=toggl_comment
-    )
+    duration_seconds = round((toggl_stop_new - toggl_start_new).total_seconds())
+    expected_jira = {
+        "started": datetime_jira_format.to_str(toggl_start_new),
+        "timeSpentSeconds": duration_seconds,
+        "comment": toggl_comment,
+    }
 
     if jira is None:
         recorder.message("Create jira entry", MessageLevel.danger)
-        recorder.jira_create(**expected_jira)
+        recorder.jira_create(expected_jira)
         return
 
     if jira.issue != toggl.issue:
         recorder.message("Move Jira worklog to other task", MessageLevel.danger)
         recorder.jira_delete()
-        recorder.jira_create(**expected_jira)
+        recorder.jira_create(expected_jira)
         return
 
-    if jira.start != toggl_start_new:
-        recorder.message("Sync jira start", MessageLevel.danger)
-        recorder.jira_update(start=expected_jira["start"])
+    def _jira_field(fieldname, message, level, equality=None):
+        if equality is None:
+            equality = _identity
 
-    if jira.stop != toggl_stop_new:
-        recorder.message("Sync jira stop", MessageLevel.danger)
-        recorder.jira_update(stop=expected_jira["stop"])
+        actual = jira.tag.raw_entry[fieldname]
+        expected = expected_jira[fieldname]
+        if equality(actual) != equality(expected):
+            logger.info("Jira field %s differs, actual: %s expected: %s", fieldname, actual, expected)
+            recorder.message(message, level)
+            recorder.jira_update(fieldname, expected)
 
-    if jira.comment != toggl_comment:
-        recorder.message("Sync jira comment", MessageLevel.warning)
-        recorder.jira_update(comment=expected_jira["comment"])
+    _jira_field("started", "Sync Jira started", MessageLevel.danger, equality=datetime_jira_format.from_str)
+    _jira_field("timeSpentSeconds", "Sync Jira timeSpentSeconds", MessageLevel.danger)
+    _jira_field("comment", "Sync Jira comment", MessageLevel.warning)
+
+
+def _identity(x):
+    return x
 
 
 def _get_expected_project_pid(toggl, diff_params):
-    project = diff_params.projects_by_key.get(toggl.tag.jira_project.lower())
+    project = diff_params.toggl_projects_by_key.get(toggl.tag.jira_project)
     return project["id"] if project is not None else None
 
 
-def _floor_minue(dt):
+def _floor_minute(dt):
     if dt is None:
         return None
     return dt.replace(second=0, microsecond=0)

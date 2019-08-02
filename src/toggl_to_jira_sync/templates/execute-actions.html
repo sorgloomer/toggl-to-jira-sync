@@ -14,8 +14,9 @@
                 {% endif %}
                 text-white
             ">
-                {{ action.type }} {{ action.action }} {{ action.id or "new" }} of {{ action.issue }}
-                <div class="d-none">{{ action.values }}</div>
+                <div class="action-text">{{ action.type }} {{ action.action }} {{ action.id or "new" }} of {{ action.issue }}</div>
+                <div class="d-none action-result">{{ action.result }}</div>
+                <div class="d-none action-values">{{ action.values }}</div>
             </div>
         {% endfor %}
     </div>

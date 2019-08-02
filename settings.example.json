@@ -1,0 +1,28 @@
+{
+  "toggl.workspace.name": "My Company",
+  "projects": {
+    "WEB": {
+      "toggl.project": "Web Development",
+      "toggl.billable": false
+    },
+    "BACK": {
+      "toggl.project": "Backend Development",
+      "toggl.billable": false
+    },
+    "OPS": {
+      "toggl.project": "Devops",
+      "toggl.billable": false
+    },
+    "HR": {
+      "toggl.project": "HR",
+      "toggl.billable": false,
+      "jira.skip": true
+    },
+    "NONE": {
+      "toggl.project": null,
+      "toggl.billable": false,
+      "jira.skip": true
+    }
+  },
+  "jira.url_base": "https://jira.mycompany.com/"
+}

@@ -10,7 +10,7 @@ from markupsafe import Markup
 from tzlocal import get_localzone
 from werkzeug.urls import url_encode
 
-from toggl_to_jira_sync import config, utils, actions, service
+from toggl_to_jira_sync import settingsloader, utils, actions, service
 from toggl_to_jira_sync.core import DayBin, calculate_pairing
 from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_my_date_format
 from toggl_to_jira_sync.service import aware_now
@@ -166,7 +166,8 @@ def _ensure_model(delta, force_refresh=False):
 
 def _fetch_model(delta):
     day_bin = DayBin()
-    apis = service.get_apis()
+    settings = settingsloader.get_settings()
+    apis = service.get_apis(settings=settings)
     today = day_bin.date_of(aware_now())
 
     if apis.secrets is None:
@@ -181,12 +182,12 @@ def _fetch_model(delta):
         max_datetime=max_datetime,
     )
     toggl_worklog = apis.toggl.get_worklog(
-        workspace_name=apis.secrets.toggl_workspace_name,
+        workspace_name=settings.toggl_workspace_name,
         min_datetime=min_datetime,
         max_datetime=max_datetime,
     )
     pairings = calculate_pairing(toggl_worklog["worklog"], jira_worklog["worklog"])
-    diff_gatherer = actions.DiffGather(secrets=apis.secrets, projects=toggl_worklog["projects"])
+    diff_gatherer = actions.DiffGather(settings=settings, projects=toggl_worklog["projects"])
     rows = [
         determine_actions_and_map(pairing, diff_gatherer)
         for pairing in pairings
@@ -279,5 +280,5 @@ def determine_actions_and_map(pairing, diff_gatherer):
 
 
 def main():
-    args = config.parse_args()
+    args = settingsloader.parse_args()
     app.run(debug=args.debug)
