@@ -125,7 +125,11 @@ def _gather_diff(recorder, toggl, jira, diff_params):
             recorder.jira_delete()
         return
 
-    project_setting = diff_params.settings.projects[toggl.tag.jira_project]
+    project_setting = diff_params.settings.projects.get(toggl.tag.jira_project)
+    if project_setting is None:
+        recorder.message("Project {!r} is not set up".format(toggl.tag.jira_project), MessageLevel.warning)
+        return
+
     expected_billable = project_setting.toggl_billable
     if toggl.tag.billable != expected_billable:
         recorder.message("Update Toggl billability to {}".format(expected_billable), MessageLevel.info)

@@ -1,3 +1,4 @@
 #!/usr/bin/env sh
+source venv/bin/activate.sh
 export FLASK_DEBUG=1
-venv/bin/flask run
+flask run
