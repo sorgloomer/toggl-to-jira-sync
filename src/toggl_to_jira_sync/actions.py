@@ -89,10 +89,16 @@ class ActionRecorder(object):
 class DiffGather(object):
     def __init__(self, settings, projects):
         toggl_projects_by_name = utils.index_by(projects, "name")
-        self.toggl_projects_by_key = {
-            k: toggl_projects_by_name[v.toggl_project] if v.toggl_project is not None else None
-            for k, v in settings.projects.items()
-        }
+        self.toggl_projects_by_key = dict()
+        for k, v in settings.projects.items():
+            project = None
+            toggl_project_name = v.toggl_project
+            if toggl_project_name:
+                project = toggl_projects_by_name.get(toggl_project_name)
+                if project is None:
+                    raise KeyError(f"Toggl project with name {toggl_project_name!r} not found, check if project exists "
+                                   f"in Toggl and search for typos in its name")
+            self.toggl_projects_by_key[k] = project
         self.settings = settings
 
     def gather_diff(self, pairing):
