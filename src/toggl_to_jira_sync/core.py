@@ -71,6 +71,8 @@ def _worklog_str_dist(x, y):
 
 
 def _worklog_datetime_dist(dt1, dt2):
+    if dt1 is None or dt2 is None:
+        return 100
     return abs(dt1 - dt2) / datetime.timedelta(minutes=60)
 
 

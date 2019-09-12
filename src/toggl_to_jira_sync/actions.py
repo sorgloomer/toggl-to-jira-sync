@@ -146,18 +146,23 @@ def _gather_diff(recorder, toggl, jira, diff_params):
         recorder.message("Update Toggl project", MessageLevel.warning)
         recorder.toggl_update(pid=expected_pid)
 
+    should_be_no_jira_entry = project_setting.jira_skip
     toggl_comment = toggl.comment
     toggl_start_new = _floor_minute(toggl.start)
+    if toggl_start_new is None:
+        should_be_no_jira_entry = True
     if toggl.start != toggl_start_new:
         recorder.message("Align Toggl start", MessageLevel.info)
         recorder.toggl_update(start=datetime_toggl_format.to_str(toggl_start_new))
 
     toggl_stop_new = _floor_minute(toggl.stop)
+    if toggl_stop_new is None:
+        should_be_no_jira_entry = True
     if toggl.stop != toggl_stop_new:
         recorder.message("Align Toggl stop", MessageLevel.info)
         recorder.toggl_update(stop=datetime_toggl_format.to_str(toggl_stop_new))
 
-    if project_setting.jira_skip:
+    if should_be_no_jira_entry:
         if jira is None:
             recorder.message("Skip for Jira", MessageLevel.info)
         else:
