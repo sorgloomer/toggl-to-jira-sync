@@ -1,2 +1,2 @@
 timeout 1
-start "" "http://localhost:5055"
+python -m webbrowser "http://localhost:5055"
