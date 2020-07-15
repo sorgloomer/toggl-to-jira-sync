@@ -39,7 +39,9 @@
                     <form method="POST" class="d-inline">
                         <input type="hidden" name="action" value="sync">
                         <input type="hidden" name="day" value="{{ daydef.key }}">
-                        <button class="btn btn-primary btn-sm" type="submit">Sync ({{ daydef.actions | length }} actions)</button>
+                        {% set has_actions = (daydef.actions | length) > 0 %}
+                        {% set sync_button_color = 'btn-primary' if has_actions else 'btn-secondary' %}
+                        <button class="btn {{ sync_button_color }} btn-sm" type="submit">Sync ({{ daydef.actions | length }} actions)</button>
                     </form>
                     <form method="POST" class="d-inline">
                         <input type="hidden" name="action" value="refresh">
