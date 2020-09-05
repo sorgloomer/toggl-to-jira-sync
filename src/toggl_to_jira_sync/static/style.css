@@ -1,0 +1,59 @@
+.sync-row {
+    border: 1px solid black;
+    padding: 5px;
+}
+.sync-day {
+    border: 1px solid black;
+    padding: 5px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+.sync-day-headline {
+    display: flex;
+    align-items: center;
+}
+
+.sync-app {
+    border: 1px solid black;
+    padding: 5px;
+}
+
+.icon, .details {
+    display: inline-flex;
+
+    height: 40px;
+    padding: 4px;
+    border: 1px solid #888888;
+    border-radius: 3px;
+    margin: 4px;
+    color: #222222;
+}
+
+
+.icon {
+    display: inline-flex;
+    justify-content: center;
+    align-content: center;
+    width: 40px;
+    font-size: 26px;
+    font-weight: bolder;
+}
+
+.details {
+    width: 400px;
+}
+
+.icon.icon-loading {
+    background: url("spinner.svg") no-repeat;
+    background-size: cover;
+}
+
+.icon.icon-collapse > * {
+    margin: 5px;
+    border: 0 #1685b7 solid;
+    border-bottom-width: 6px;
+    border-right-width: 6px;
+    transform: rotate(45deg);
+    width: 16px;
+    height: 16px;
+}

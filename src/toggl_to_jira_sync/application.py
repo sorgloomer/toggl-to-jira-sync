@@ -10,11 +10,12 @@ from markupsafe import Markup
 from tzlocal import get_localzone
 from werkzeug.urls import url_encode
 
-from toggl_to_jira_sync import settingsloader, utils, actions, service
-from toggl_to_jira_sync.core import DayBin, calculate_pairing
-from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_my_date_format
-from toggl_to_jira_sync.service import aware_now
-from toggl_to_jira_sync.session import SingletonMemorySessionInterface
+from . import settingsloader, utils, actions, service, api_controller
+from .api_service import determine_actions_and_map
+from .core import DayBin, calculate_pairing
+from .formats import datetime_toggl_format, datetime_my_date_format
+from .service import aware_now
+from .session import SingletonMemorySessionInterface
 
 app = flask.Flask(__name__)
 app.config.from_pyfile('config/default.py')
@@ -267,18 +268,9 @@ def aggregate_actions(day):
     }
 
 
-def determine_actions_and_map(pairing, diff_gatherer):
-    diff = diff_gatherer.gather_diff(pairing)
-    return {
-        "toggl": pairing["toggl"],
-        "jira": pairing["jira"],
-        "dist": pairing["dist"],
-        "start": pairing["start"],
-        "actions": diff["actions"],
-        "messages": diff["messages"],
-    }
-
-
 def main():
     args = settingsloader.parse_args()
     app.run(debug=args.debug)
+
+
+api_controller.api_routes(app)

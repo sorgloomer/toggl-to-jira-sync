@@ -39,6 +39,14 @@ class BaseApi(object):
         return None
 
 
+def _in_range(dt, min_dt, max_dt):
+    if min_dt is not None and dt < min_dt:
+        return False
+    if max_dt is not None and dt >= max_dt:
+        return False
+    return True
+
+
 class TogglApi(BaseApi):
     def __init__(self, secrets=None, api_base=None):
         if api_base is None:
@@ -78,6 +86,7 @@ class TogglApi(BaseApi):
             self._extract_entry(entry, project_by_id.get(entry.get("pid")), entry.get("pid"))
             for entry in entries
         ]
+        worklog = [w for w in worklog if _in_range(w.start, min_datetime, max_datetime)]
         return {
             "workspace": workspace,
             "projects": projects,
@@ -233,8 +242,4 @@ class JiraApi(BaseApi):
         if worklog_filter.author not in [worklog_entry_dto["author"]["key"], worklog_entry_dto["author"]["name"]]:
             return False
         started = datetime_jira_format.from_str(worklog_entry_dto["started"])
-        if worklog_filter.min_date is not None and started < worklog_filter.min_date:
-            return False
-        if worklog_filter.max_date is not None and started > worklog_filter.max_date:
-            return False
-        return True
+        return _in_range(started, worklog_filter.min_date, worklog_filter.max_date)
