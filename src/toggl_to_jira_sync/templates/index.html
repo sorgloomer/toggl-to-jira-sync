@@ -24,6 +24,9 @@
 {% block page_content %}
         <div class="mb-3">
             <h1>Logs of 7 days</h1>
+            <div>
+                <a href="/static/index.html">Try the new UI</a>
+            </div>
             <a href="{{ modify_query(delta=delta-7) }}" class="btn btn-secondary">Previous week</a>
             <a href="{{ modify_query(delta=None) }}" class="btn btn-secondary">Jump to now</a>
             <form action="/attempt-shutdown" method="post" class="sneaky-form">

@@ -3,9 +3,9 @@
     padding: 5px;
 }
 .sync-day {
-    border: 1px solid black;
+    border: 1px solid #888888;
     padding: 5px;
-    border-radius: 5px;
+    border-radius: 8px;
     margin-bottom: 10px;
 }
 .sync-day-headline {
@@ -14,8 +14,15 @@
 }
 
 .sync-app {
-    border: 1px solid black;
-    padding: 5px;
+    padding: 20px;
+}
+.sync-title {
+    margin-bottom: 40px;
+}
+
+.sync-action {
+    width: 140px;
+    height: 40px;
 }
 
 .icon, .details {
@@ -40,7 +47,7 @@
 }
 
 .details {
-    width: 400px;
+    flex-grow: 1;
 }
 
 .icon.icon-loading {

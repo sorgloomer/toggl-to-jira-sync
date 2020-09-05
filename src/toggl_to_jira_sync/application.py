@@ -16,6 +16,7 @@ from .core import DayBin, calculate_pairing
 from .formats import datetime_toggl_format, datetime_my_date_format
 from .service import aware_now
 from .session import SingletonMemorySessionInterface
+import mimetypes
 
 app = flask.Flask(__name__)
 app.config.from_pyfile('config/default.py')
@@ -23,6 +24,10 @@ app.config.from_envvar('APP_CONFIG_FILE', silent=True)
 app.session_interface = SingletonMemorySessionInterface()
 
 app.last_request_time = 0.0
+
+
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('text/javascript', '.js')
 
 
 @app.before_request

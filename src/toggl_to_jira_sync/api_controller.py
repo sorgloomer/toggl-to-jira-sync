@@ -1,12 +1,21 @@
 import datetime
+import json
+import time
 
 import flask
 
-from . import api_service, service
+from . import api_service, service, settingsloader
 
 
 def api_routes(app):
-    @app.route("/api/diff/get", methods=["GET"])
+    @app.route("/api/settings", methods=["GET"])
+    def api_get_settings():
+        secret = settingsloader.get_secrets()
+        return flask.jsonify({
+            "jira_username": secret.jira_username
+        })
+
+    @app.route("/api/diff", methods=["GET"])
     def api_get_diff():
         date_max, date_min = _get_date_args()
 
@@ -27,9 +36,19 @@ def api_routes(app):
             for row in result["rows"]
             for action in row["actions"]
         ]
-        for action in aggregated_actions:
-            service.ActionExecutor().execute(action)
-        return flask.jsonify({"result": "ok"})
+        action_executor = service.ActionExecutor()
+        total = len(aggregated_actions)
+        def _stream():
+            for i, action in enumerate(aggregated_actions):
+                yield {"current": i, "total": total, "next": aggregated_actions[i], "finished": False}
+                action_executor.execute(action)
+            yield {"current": total, "total": total, "next": None, "finished": True}
+        return flask.Response(_json_lines(_stream()), "text/plain")
+
+
+def _json_lines(iterable):
+    for j in iterable:
+        yield f"{json.dumps(j)}\n"
 
 
 def _get_date_args():
