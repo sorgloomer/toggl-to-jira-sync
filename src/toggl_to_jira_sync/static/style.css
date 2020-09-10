@@ -7,7 +7,18 @@
     padding: 5px;
     border-radius: 8px;
     margin-bottom: 10px;
+    overflow: hidden;
 }
+
+.sync-day {
+    transition: max-height 400ms ease-in-out;
+    max-height: 100%;
+}
+
+.sync-day.collapsed {
+    max-height: 76px;
+}
+
 .sync-day-headline {
     display: flex;
     align-items: center;
@@ -39,15 +50,37 @@
 
 .icon {
     display: inline-flex;
+    justify-items: center;
+    align-items: center;
     justify-content: center;
-    align-content: center;
     width: 40px;
-    font-size: 26px;
+    font-size: 40px;
     font-weight: bolder;
+    color: #17a2b8;
+}
+
+
+.icon::after {
+    display: block;
+    font-family: "FontAwesome";
+}
+.icon.icon-expand::after {
+    content: "";
+    transform: rotate(0deg);
+    transition: transform 400ms ease-in-out;
+}
+
+.icon.icon-expand.icon-expand-collapse::after {
+    transform: rotate(-180deg);
 }
 
 .details {
     flex-grow: 1;
+}
+
+.icon.icon-refresh::after {
+    content: "\f021";
+    font-size: 75%;
 }
 
 .icon.icon-loading {

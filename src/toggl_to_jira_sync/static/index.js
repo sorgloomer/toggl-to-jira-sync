@@ -31,7 +31,7 @@ async function main() {
         app.days.push(makeDay(loop_day));
     }
 
-    for (var i = 0; i < 7; i++) {
+    for (var i = 0; i < 10; i++) {
         addDay();
     }
 }

@@ -43,7 +43,22 @@ def api_routes(app):
                 yield {"current": i, "total": total, "next": aggregated_actions[i], "finished": False}
                 action_executor.execute(action)
             yield {"current": total, "total": total, "next": None, "finished": True}
-        return flask.Response(_json_lines(_stream()), "text/plain")
+        return flask.Response(
+            _json_lines(_stream()), mimetype="text/plain"
+        )
+
+    @app.route("/api/diff/dummy", methods=["POST"])
+    def api_dummy_diff():
+        def _stream():
+            total = 10
+            for i in range(total):
+                yield {"current": i, "total": total, "next": "asd", "finished": False}
+                time.sleep(0.5)
+            yield {"current": total, "total": total, "next": None, "finished": True}
+        return flask.Response(
+            _json_lines(_stream()),
+            mimetype="text/plain",
+        )
 
 
 def _json_lines(iterable):

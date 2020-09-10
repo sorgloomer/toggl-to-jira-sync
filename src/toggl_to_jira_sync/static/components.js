@@ -11,14 +11,25 @@ Vue.component("sync-row", {
 });
 Vue.component("sync-day", {
     template: `
-        <div class="sync-day">
+        <div
+            class="sync-day"
+            v-bind:class="expanded ? '' : 'collapsed'"
+        >
             <div class="sync-day-headline">
-                <span class="icon icon-loading" v-if="day.loading"></span>
-                <span class="icon icon-collapse" v-if="!day.loading" v-on:click="toggleExpand()"><span></span></span>
+                <span
+                    class="icon"
+                    v-bind:class="day.loading ? 'icon-loading' : 'icon-refresh'"
+                    v-on:click="refresh()"
+                ></span>
+                <span
+                    class="icon icon-expand"
+                    v-bind:class="expanded ? 'icon-expand-collapse' : 'icon-expand-expand'"
+                    v-on:click="toggleExpand()"
+                ></span>
                 <button
                     type="button"
                     class="btn sync-action"
-                    v-bind:class="(day?.actions?.length ? 'btn-primary' : 'btn-secondary') + ' ' + (day?.loading ? 'disabled' : '')"
+                    v-bind:class="(day?.error ? 'btn-danger' :  (day?.actions?.length ? 'btn-primary' : 'btn-secondary')) + ' ' + (day?.loading ? 'disabled' : '')"
                     v-bind:disabled="day?.loading"
                     v-on:click="executeSync()"
                 >{{ day?.actions?.length }} differences</button>
@@ -26,17 +37,26 @@ Vue.component("sync-day", {
                     <span>{{ calendarDay(day?.date) ?? "unknown day" }}</span>
                 </span>
             </div>
-            <div>
-                <div v-if="expanded">
-                    <div v-for="row in day.rows">
-                        <sync-row v-bind:row="row"></sync-row>
-                    </div>
+            <div class="progress">
+                <div
+                    class="progress-bar"
+                    role="progressbar"
+                    aria-valuenow="0"
+                    aria-valuemin="0"
+                    v-bind:aria-valuemax="progress"
+                    v-bind:style="'width: ' + progress + '%'"
+                ></div>
+            </div>
+            <div class="details-section">
+                <div v-if="day?.error">{{ day?.error }}</div>
+                <div v-for="row in day.rows">
+                    <sync-row v-bind:row="row"></sync-row>
                 </div>
             </div>
         </div>
     `,
     props: ['day'],
-    data: () => ({ expanded: false }),
+    data: () => ({ expanded: false, progress: 0 }),
     methods: {
         toggleExpand() {
             this.expanded = !this.expanded;
@@ -48,7 +68,11 @@ Vue.component("sync-day", {
             this.day.loading = true;
             spawn(async () => {
                 try {
-                    _doSyncDay(this.day);
+                    this.progress = 0;
+                    await _doSyncDay(this.day, progress => {
+                        this.progress = progress;
+                    });
+                    this.day.error = null;
                 } catch (e) {
                     this.day.error = String(e);
                 } finally {
@@ -56,7 +80,14 @@ Vue.component("sync-day", {
                 }
                 enqueueDayUpdate(this.day, true);
             });
-        }
+        },
+        refresh() {
+            if (this.day.loading) {
+                return;
+            }
+            this.day.loading = true;
+            enqueueDayUpdate(this.day, true);
+        },
     },
 });
 
@@ -113,7 +144,7 @@ export function makeDay(date) {
 }
 
 
-var queue = new Queue({ workers: 2 });
+var queue = new Queue({ workers: 1 });
 
 
 function enqueueDayUpdate(day, priority=false) {
@@ -121,6 +152,7 @@ function enqueueDayUpdate(day, priority=false) {
     queue.submit(async () => {
         try {
             await _doUpdateDay(day);
+            day.error = null;
         } catch(e) {
             day.error = String(e);
         } finally {
@@ -138,18 +170,18 @@ async function _doFetchDay(day) {
     return await resp.json();
 }
 
-async function _doSyncDay(day) {
+async function _doSyncDay(day, progressCb) {
     var {min, max} = getDayRange(day);
     var resp = await fetch(
-        `/api/diff/dummy?min=${encodeURIComponent(min)}&max=${encodeURIComponent(max)}`,
+        `/api/diff/sync?min=${encodeURIComponent(min)}&max=${encodeURIComponent(max)}`,
         {method: "post"}
     );
     if (!resp.ok) {
-        throw new Error();
+        throw new Error(await resp.text());
     }
     await readLines(resp, line => {
         var data = JSON.parse(line);
-        console.log(`${data.current} / ${data.max}`);
+        if (progressCb) progressCb(Math.round(100 *  data.current / data.total));
     });
 }
 
