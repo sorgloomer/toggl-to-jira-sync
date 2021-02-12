@@ -192,18 +192,18 @@ def _gather_diff(recorder, toggl, jira, diff_params):
         recorder.jira_create(expected_jira)
         return
 
-    def _jira_field(fieldname, message, level, equality=None):
-        if equality is None:
-            equality = _identity
+    def _jira_field(fieldname, message, level, equals_by=None):
+        if equals_by is None:
+            equals_by = _identity
 
-        actual = jira.tag.raw_entry[fieldname]
+        actual = jira.tag.raw_entry.get(fieldname)
         expected = expected_jira[fieldname]
-        if equality(actual) != equality(expected):
+        if equals_by(actual) != equals_by(expected):
             logger.info("Jira field %s differs, actual: %s expected: %s", fieldname, actual, expected)
             recorder.message(message, level)
             recorder.jira_update(fieldname, expected)
 
-    _jira_field("started", "Sync Jira started", MessageLevel.danger, equality=datetime_jira_format.from_str)
+    _jira_field("started", "Sync Jira started", MessageLevel.danger, equals_by=datetime_jira_format.from_str)
     _jira_field("timeSpentSeconds", "Sync Jira timeSpentSeconds", MessageLevel.danger)
     _jira_field("comment", "Sync Jira comment", MessageLevel.warning)
 
