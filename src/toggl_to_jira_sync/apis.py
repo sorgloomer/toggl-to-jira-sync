@@ -239,7 +239,12 @@ class JiraApi(BaseApi):
 
     @staticmethod
     def _worklog_matches_filter(worklog_entry_dto, worklog_filter):
-        if worklog_filter.author not in [worklog_entry_dto["author"]["key"], worklog_entry_dto["author"]["name"]]:
+        if worklog_filter.author not in [
+            worklog_entry_dto["author"].get("key"),
+            worklog_entry_dto["author"].get("name"),
+            worklog_entry_dto["author"].get("emailAddress"),
+            worklog_entry_dto["author"].get("displayName"),
+        ]:
             return False
         started = datetime_jira_format.from_str(worklog_entry_dto["started"])
         return _in_range(started, worklog_filter.min_date, worklog_filter.max_date)
