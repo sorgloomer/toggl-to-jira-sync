@@ -1,5 +1,5 @@
-import { spawn, Queue } from "./utils.js";
-import { readLines } from "./streams.js";
+import {Queue, spawn} from "./utils.js";
+import {readLines} from "./streams.js";
 
 Vue.component("sync-row", {
     template: `
@@ -47,7 +47,7 @@ Vue.component("sync-day", {
                     v-bind:style="'width: ' + progress + '%'"
                 ></div>
             </div>
-            <div class="details-section">
+            <div class="details-section" style="display: none" ref="detailsSection">
                 <div v-if="day?.error">{{ day?.error }}</div>
                 <div v-for="row in day.rows">
                     <sync-row v-bind:row="row"></sync-row>
@@ -60,6 +60,9 @@ Vue.component("sync-day", {
     methods: {
         toggleExpand() {
             this.expanded = !this.expanded;
+            slide(this.$refs.detailsSection, this.expanded, {
+                duration: 400,
+            });
         },
         executeSync() {
             if (this.day.loading) {
@@ -194,4 +197,14 @@ function getDayRange(day) {
 async function _doUpdateDay(day) {
     var data = await _doFetchDay(day);
     Object.assign(day, data);
+}
+
+
+function slide(el, shown, opts) {
+    var $el = $(el);
+    if (shown) {
+        $el.slideDown(opts);
+    } else {
+        $el.slideUp(opts);
+    }
 }

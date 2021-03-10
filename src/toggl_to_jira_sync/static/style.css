@@ -10,15 +10,6 @@
     overflow: hidden;
 }
 
-.sync-day {
-    transition: max-height 400ms ease-in-out;
-    max-height: 100%;
-}
-
-.sync-day.collapsed {
-    max-height: 76px;
-}
-
 .sync-day-headline {
     display: flex;
     align-items: center;
