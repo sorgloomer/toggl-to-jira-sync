@@ -50,7 +50,7 @@ def _in_range(dt, min_dt, max_dt):
 class TogglApi(BaseApi):
     def __init__(self, secrets=None, api_base=None):
         if api_base is None:
-            api_base = "https://www.toggl.com/api/"
+            api_base = "https://api.track.toggl.com/api/"
         if secrets is None:
             secrets = settingsloader.get_secrets()
         session = requests.Session()
