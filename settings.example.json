@@ -1,22 +1,37 @@
 {
-  "toggl.workspace.name": "My Company",
+  "toggl.workspace.name": "Aliz",
   "projects": {
-    "WEB": {
-      "toggl.project": "Web Development",
-      "toggl.billable": false
+    "AOD": {
+      "toggl.project": "AODocs (aodocs-1)",
+      "toggl.billable": true
     },
-    "BACK": {
-      "toggl.project": "Backend Development",
-      "toggl.billable": false
+    "PROD": {
+      "toggl.project": "AODocs (aodocs-1)",
+      "toggl.billable": true
     },
-    "OPS": {
-      "toggl.project": "Devops",
-      "toggl.billable": false
+    "OSS": {
+      "toggl.project": "AODocs (aodocs-1)",
+      "toggl.billable": true
     },
-    "HR": {
-      "toggl.project": "HR",
-      "toggl.billable": false,
-      "jira.skip": true
+    "DA": {
+      "toggl.project": "AODocs (aodocs-1)",
+      "toggl.billable": true
+    },
+    "CSE": {
+      "toggle.project": "AODocs (aodocs-1)",
+      "toggle.billable": true
+    },
+    "MS": {
+      "toggl.project": "AODocs (aodocs-1)",
+      "toggle.billable": true
+    },
+    "INFRA": {
+      "toggle.project": "AODocs (aodocs-1)",
+      "toggle.billable": true
+    },
+    "AMT": {
+      "toggle.project": "AODocs (aodocs-1)",
+      "toggle.billable": true
     },
     "NONE": {
       "toggl.project": null,
@@ -24,5 +39,5 @@
       "jira.skip": true
     }
   },
-  "jira.url_base": "https://jira.mycompany.com/"
+  "jira.url_base": "https://altirnao.atlassian.net/"
 }

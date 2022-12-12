@@ -30,3 +30,6 @@ How to use
    `call install.bat`
    the scripts will install and setup virtualenv
  - call `run-once`
+
+The `settings.example.json` file contains oddly specific examples: the Jira projects the AODocs DMS team is working with.
+If you are in this team, you can ust copy this file to your `settings.json` and you're good to go.
