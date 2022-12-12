@@ -12,6 +12,10 @@ from toggl_to_jira_sync.formats import datetime_toggl_format, datetime_jira_date
 
 logger = logging.getLogger(__name__)
 
+# Max items returned by a GET request
+# https://developer.atlassian.com/cloud/jira/platform/changelog/#CHANGE-797
+PAGE_SIZE = 5000
+
 JiraTag = namedtuple("JiraTag", ["id", "raw_entry"])
 TogglTag = namedtuple("TogglTag", ["id", "project_name", "project_pid", "billable", "jira_project", "raw_entry"])
 
@@ -50,7 +54,7 @@ def _in_range(dt, min_dt, max_dt):
 class TogglApi(BaseApi):
     def __init__(self, secrets=None, api_base=None):
         if api_base is None:
-            api_base = "https://www.toggl.com/api/"
+            api_base = "https://api.track.toggl.com/api/"
         if secrets is None:
             secrets = settingsloader.get_secrets()
         session = requests.Session()
@@ -221,8 +225,16 @@ class JiraApi(BaseApi):
         return " AND ".join(filters)
 
     def _fetch_worklog(self, worklog_filter, issue):
-        resp = self._get("rest/api/2/issue/{key}/worklog".format(key=issue["key"]))
-        for worklog in resp["worklogs"]:
+        worklogs = []
+        start = 0
+        resp = self._get("rest/api/2/issue/{key}/worklog?maxResults={pageSize}".format(key=issue["key"], pageSize=PAGE_SIZE))
+        worklogs += resp["worklogs"]
+        while resp["total"] > len(worklogs):
+            start += PAGE_SIZE
+            resp = self._get("rest/api/2/issue/{key}/worklog?startAt={startAt}&maxResults={pageSize}".format(key=issue["key"], startAt=start, pageSize=PAGE_SIZE))
+            worklogs += resp["worklogs"]
+
+        for worklog in worklogs:
             if self._worklog_matches_filter(worklog, worklog_filter):
                 started = datetime_jira_format.from_str(worklog["started"])
                 ended = started + datetime.timedelta(seconds=worklog["timeSpentSeconds"])
