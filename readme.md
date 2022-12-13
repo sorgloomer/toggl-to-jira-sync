@@ -23,7 +23,8 @@ How to use
    - create a `settings.json` based on `settings.example.json` to
      tell the application how Toggl projects should be mapped to Jira
    - create a `secrets.json` based on `secrets.example.json` and provide
-     your Toggl and Jira credentials (you should use your email address and an api token as password in case of Jira)
+     your Toggl and Jira credentials 
+     (In case of Jira you should use the Jira associated email address and an api token as password)
  - setup and activate virtualenv
    `source install.sh`
    or
