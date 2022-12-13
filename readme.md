@@ -12,7 +12,7 @@ automatically:
  - will create a corresponding Jira worklog entry with the same
    description
 
-if set up correctly
+if set up correctly (won't work for today if your timer is currently running)
 
 
 How to use
@@ -23,7 +23,8 @@ How to use
    - create a `settings.json` based on `settings.example.json` to
      tell the application how Toggl projects should be mapped to Jira
    - create a `secrets.json` based on `secrets.example.json` and provide
-     your Toggl and Jira credentials
+     your Toggl and Jira credentials 
+     (In case of Jira you should use the Jira associated email address and an api token as password)
  - setup and activate virtualenv
    `source install.sh`
    or
